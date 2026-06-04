@@ -923,6 +923,7 @@ Mixture(STV_Conclusion) = revision(stvᵢ₁, stvₖ₁) + ... + revision(stvᵢ
               = c₃₁×stv₃₁ + ... + c₃ₙ×stv₃ₙ
 
 Revision : BetaD x BetaD -> BetaD
+<<<<<<< HEAD
 
 ------------- Revision Paradox -------------
 
