@@ -393,3 +393,7 @@
                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
 
 ;; NEXT: introduce reduction rules to avoid (∧ F F) and the like.
+;; Hint: instead of writing reduction rules, wire into the inference
+;; rules obligations of building components in normal form, via extra
+;; premises.  This should have the effect of pruning upfront anything
+;; that is not in normal form.
