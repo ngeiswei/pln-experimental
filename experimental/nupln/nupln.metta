@@ -118,9 +118,11 @@
 
 ;; Base case
 (= (nupln_bc $kb $budget (: $x $a))
+   ;; (trace! (👁 nupln_bc_base $kb $budget (: $x $a))
    (if (<= 1 $budget)
        (match $kb (: $x $a) (MkSized 1 (: $x $a)))
        (empty)))
+   ;; )
 
 ;; Type check conjunction, ∧.  For now conjunction can only be
 ;; introduced between predicates of identical type. For
@@ -137,6 +139,7 @@
 ;;
 ;; thus why we need to be more specific.
 (= (nupln_bc $kb $budget (: (∧ $f $g) (-> $a Bool)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (∧ $f $g) (-> $a Bool)))
    ;; The budget must be at least 3: 1 for the type checking of $f, 1
    ;; for the type checking of $g, and 1 for the introduction of ∧.
    (if (<= 3 $budget)
@@ -148,16 +151,19 @@
                (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))))
          (MkSized (+ 1 (+ $fs $gs)) (: (∧ $f $g) (-> $a Bool))))
        (empty)))
+   ;; )
 
 ;; Type check singleton construction, ⊙.  If $x is of type $a, then
 ;; (⊙ $x) is of type $a -> Bool.
 (= (nupln_bc $kb $budget (: (⊙ $x) (-> $a Bool)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (⊙ $x) (-> $a Bool)))
    ;; The budget must be at least 2: 1 for the type checking of $x,
    ;; and 1 for the introduction of ⊙.
    (if (<= 2 $budget)
        (let (MkSized $xs (: $x $a)) (nupln_bc $kb (- $budget 1) (: $x $a))
             (MkSized (+ 1 $xs) (: (⊙ $x) (-> $a Bool))))
        (empty)))
+   ;; )
 
 ;; Type check implication, →.  For now it is assumed that implication
 ;; can only be established between predicates of identical type.  For
@@ -170,6 +176,7 @@
 ;; perhaps a conditional predicate but for now it is merely a PLN
 ;; statement.
 (= (nupln_bc $kb $budget (: (→ $f $g) Statement))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (→ $f $g) Statement))
    ;; The budget must be at least 3: 1 for the type checking of $f, 1
    ;; for the type checking of $g, and 1 for the introduction of →.
    (if (<= 3 $budget)
@@ -181,6 +188,7 @@
                (nupln_bc $kb (- $budget (+ $fs 1)) (: $g $a))))
          (MkSized (+ 1 (+ $fs $gs)) (: (→ $f $g) Statement)))
        (empty)))
+   ;; )
 
 ;; Conjunction evaluation to ⊤.  The query
 ;;
@@ -191,6 +199,7 @@
 ;;
 ;; `cet` stands for conjunction evaluate to true.
 (= (nupln_bc $kb $budget (: (cet $fp $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (cet $fp $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)))
    ;; The budget must be at least 4: 1 for the type checking of (→ (⊙
    ;; $x) (∧ $f $g)), 1 for the evaluation of (→ (⊙ $x) $f), 1 for the
    ;; evaluation of (→ (⊙ $x) $g), and 1 for the introduction of ∧.
@@ -212,6 +221,7 @@
          (MkSized (+ 1 (+ $as (+ $fs $gs)))
                   (: (cet $fp $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊤))))
        (empty)))
+   ;; )
 
 ;; Conjunction evaluation to ⊥, left.  The query
 ;;
@@ -221,7 +231,8 @@
 ;; argument.  The premise is that ($f $x) evaluates to False.
 ;;
 ;; `cefl` stands for conjunction evaluates to false from left.
-(= (nupln_bc $kb $budget (: (cef $fp $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+(= (nupln_bc $kb $budget (: (cefl $fp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (cefl $fp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
    ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
    ;; $x) (∧ $f $g)), 1 for the evaluation of (→ (⊙ $x) $f), and 1 for
    ;; the introduction of ∧.
@@ -237,6 +248,7 @@
          ;; Build conclusion
          (MkSized (+ 1 (+ $as $fs)) (: (cefl $fp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥))))
        (empty)))
+   ;; )
 
 ;; Conjunction evaluation to ⊥, right.  The query
 ;;
@@ -246,7 +258,8 @@
 ;; argument.  The premise is that ($g $x) evaluates to False.
 ;;
 ;; `cefr` stands for conjunction evaluates to false from right.
-(= (nupln_bc $kb $budget (: (cef $fp $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+(= (nupln_bc $kb $budget (: (cefr $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (cefr $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
    ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
    ;; $x) (∧ $f $g)), 1 for the evaluation of (→ (⊙ $x) $g), and 1 for
    ;; the introduction of ∧.
@@ -262,6 +275,28 @@
          ;; Build conclusion
          (MkSized (+ 1 (+ $as $gs)) (: (cefr $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥))))
        (empty)))
+   ;; )
+
+;; Product.  The query
+;;
+;; (: (, $x $y) (, $a $b))
+;;
+;; means that both $a $b must be proven for (, $a $b) to be proven.
+(= (nupln_bc $kb $budget (: (, $x $y) (, $a $b)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (, $x $y) (, $a $b)))
+   ;; The budget must be at least 3: 1 for $a, 1 for $b and 1 for the
+   ;; introduction of `,`.
+   (if (<= 3 $budget)
+       (let* (;; Recurse on premise 1 to prove $a
+              ((MkSized $xs (: $x $a))
+               (nupln_bc $kb (- $budget 2) (: $x $a)))
+              ;; Recurse on premise 2 to prove $b
+              ((MkSized $ys (: $y $b))
+               (nupln_bc $kb (- $budget (+ $xs 1)) (: $y $b))))
+         ;; Build product
+         (MkSized (+ 1 (+ $xs $ys)) (: (, $x $y) (, $a $b))))
+       (empty)))
+   ;; )
 
 ;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;; ;;
@@ -313,10 +348,48 @@
   (nupln_bc &kb 9 (: $prf (≞ (→ (⊙ 0) (∧ F G)) $tv)))
   (MkSized 9 (: (cet f0t g0t) (≞ (→ (⊙ 0) (∧ F G)) ⊤))))
 
-;; Infer what predicates could evaluate to False over 1.
-!(nupln_bc &kb 8 (: $prf (≞ (→ (⊙ 1) $pred) ⊥)))
+;; Evaluate (∧ F G) over 1
+!(test
+  (nupln_bc &kb 8 (: $prf (≞ (→ (⊙ 1) (∧ F G)) $tv)))
+  (MkSized 8 (: (cefl f1f) (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+
+;; Find proof of the evaluation of F over 3 values
+!(test
+  (nupln_bc &kb 5 (: $prf (, (≞ (→ (⊙ 0) F) ⊤)
+                          (, (≞ (→ (⊙ 1) F) ⊥)
+                             (≞ (→ (⊙ 2) F) ⊤)))))
+  (MkSized 5 (: (, f0t (, f1f f2t))
+                (, (≞ (→ (⊙ 0) F) ⊤)
+                (, (≞ (→ (⊙ 1) F) ⊥)
+                   (≞ (→ (⊙ 2) F) ⊤))))))
+
+;; Find proof of (∧ F G) evaluation over 2 values
+!(test
+  (nupln_bc &kb 18 (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                              (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+  (MkSized 18 (: (, (cet f0t g0t) (cefl f1f))
+                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                    (≞ (→ (⊙ 1) (∧ F G)) ⊥)))))
+
+;; Find proof of (∧ F G) evaluation over 3 values
+!(test
+  (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                           (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+                              (≞ (→ (⊙ 2) (∧ F G)) ⊥)))))
+  (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
+                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                 (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+                    (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
+
+;; Infer what predicates could evaluate to the truth table
+;; corresponding to (∧ F G)
+!(test
+  (once (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+                                 (, (≞ (→ (⊙ 1) $pred) ⊥)
+                                    (≞ (→ (⊙ 2) $pred) ⊥))))))
+  (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
+                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                 (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+                    (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
 
 ;; NEXT: introduce reduction rules to avoid (∧ F F) and the like.
-
-;; NEXT: introduce product to fit predicates with more than one data
-;; point.
