@@ -152,72 +152,74 @@
            (+ 1 (getArity (cdr-atom $x))))
        0))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Syntactic Partial Order ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
+;; Syntactic Order ;;
+;;;;;;;;;;;;;;;;;;;;;
 
-;; Compare two terms according to lexicographic order.  It is assumed
-;; they are not expression and have the same metatype.
-(= (<ₗ $x $y)
-   NEXT)
+;; ;; Compare two terms according to lexicographic order.  It is assumed
+;; ;; they are not expression and have the same metatype.
+;; (= (<ₗ $x $y)
+;;    NEXT)
 
-;; Compare two terms according to a custom syntactic total order,
-;; especially conceived to facilitate the checking of normality.  The
-;; comparison operator is defined as a less than relationship, <ₛ,
-;; that follows the rules below:
-;;
-;; 1. Variable <ₛ Symbol <ₛ Grounded <ₛ Expression
-;;
-;; 2. If both terms are of the same metatype, either Variable, Symbol
-;;    or Grounded, then lexicographic order is used.
-;;
-;; 3. If both terms, x and y, are of metatype Expression of arity
-;;    respectively n and m, then x <ₛ y if n < m.
-;;
-;; 4. If both terms, x and y, are of metatype Expression of same
-;;    arity, then lexicographic order at the tuple level is used.
-(= (<ₛ $x $y)
-   (case (get-metatype $x)
-     (Variable (case (get-metatype $y)
-                 ((Variable (<ₗ $x $y))
-                  ($else True))))
-     (Symbol (case (get-metatype $y)
-               ((Variable False)
-                (Symbol (<ₗ $x $y))
-                ($else True))))
-     (Grounded (case (get-metatype $y)
-                 ((Expression True)
-                  (Grounded (<ₗ $x $y))
-                  ($else False))))
-     (Expression (case (get-metatype $y)
-                   ((Expression
-                     (let* (($xa (getArity $x))
-                            ($ya (getArity $y)))
-                       ;; Compare arity of $x and $y
-                       (if (< $xa $ya)
-                           True
-                           (if (> $xa $ya)
-                               False
-                               ;; $x and $y have same arity
-                               (if (== $x ())
-                                   (not (== $y ()))
-                                   (if (== $y ())
-                                       False
-                                       ;; $x and $y are both non-empty expressions
-                                       (let* (($xh (car-atom $x))
-                                              ($yh (car-atom $y)))
-                                         (if (<ₛ $xh $yh)
-                                             True
-                                             (if (<ₛ $yh $xh)
-                                                 False
-                                                 ;; $x and $y are probably
-                                                 ;; syntactically identical
-                                                 (<ₛ (cdr-atom $x)
-                                                     (cdr-atom $y)))))))))))
-                    ($else False))))))
+;; ;; Compare two terms according to a custom syntactic total order,
+;; ;; especially conceived to facilitate the checking of normality.  The
+;; ;; comparison operator is defined as a less than relationship, <ₛ,
+;; ;; that follows the rules below:
+;; ;;
+;; ;; 1. Variable <ₛ Symbol <ₛ Grounded <ₛ Expression
+;; ;;
+;; ;; 2. If both terms are of the same metatype, either Variable, Symbol
+;; ;;    or Grounded, then lexicographic order is used.
+;; ;;
+;; ;; 3. If both terms, x and y, are of metatype Expression of arity
+;; ;;    respectively n and m, then x <ₛ y if n < m.
+;; ;;
+;; ;; 4. If both terms, x and y, are of metatype Expression of same
+;; ;;    arity, then lexicographic order at the tuple level is used.
+;; (= (<ₛ $x $y)
+;;    (case (get-metatype $x)
+;;      (Variable (case (get-metatype $y)
+;;                  ((Variable (<ₗ $x $y))
+;;                   ($else True))))
+;;      (Symbol (case (get-metatype $y)
+;;                ((Variable False)
+;;                 (Symbol (<ₗ $x $y))
+;;                 ($else True))))
+;;      (Grounded (case (get-metatype $y)
+;;                  ((Expression True)
+;;                   (Grounded (<ₗ $x $y))
+;;                   ($else False))))
+;;      (Expression (case (get-metatype $y)
+;;                    ((Expression
+;;                      (let* (($xa (getArity $x))
+;;                             ($ya (getArity $y)))
+;;                        ;; Compare arity of $x and $y
+;;                        (if (< $xa $ya)
+;;                            True
+;;                            (if (> $xa $ya)
+;;                                False
+;;                                ;; $x and $y have same arity
+;;                                (if (== $x ())
+;;                                    (not (== $y ()))
+;;                                    (if (== $y ())
+;;                                        False
+;;                                        ;; $x and $y are both non-empty expressions
+;;                                        (let* (($xh (car-atom $x))
+;;                                               ($yh (car-atom $y)))
+;;                                          (if (<ₛ $xh $yh)
+;;                                              True
+;;                                              (if (<ₛ $yh $xh)
+;;                                                  False
+;;                                                  ;; $x and $y are probably
+;;                                                  ;; syntactically identical
+;;                                                  (<ₛ (cdr-atom $x)
+;;                                                      (cdr-atom $y)))))))))))
+;;                     ($else False))))))
 
-;; ;; Test <ₛ
-;; NEXT
+;; ;; ;; Test <ₛ
+;; ;; NEXT
+
+;; NEXT: use syntactic ordering instead !(@< A B)
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;; ;;
