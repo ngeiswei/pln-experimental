@@ -4,21 +4,12 @@
 ;; Loading the Prolog helper                                          ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; `import!` consults the file via PeTTa's import machinery. We pull
-;; in `lib_import` to get the helper that consults a .pl file and
-;; registers each predicate as a MeTTa function. `library/1`
-;; resolves the path through PeTTa's SWI-Prolog library search.
 !(import! &self (library lib_import.metta))
 
-;; Consult the helper file from the directory of this MeTTa file
-;; (PeTTa's main sets `working_dir` to that directory) and register
-;; its public predicates as MeTTa functions. The last argument of
-;; `nupln_uniform/2` is the output, so it fits PeTTa's "function
-;; form" convention. `nupln_set_seed/1` is a side-effecting command
-;; (it perturbs the global random state) but we still register it
-;; here because we want the convenience of calling it from MeTTa.
-!(import_prolog_functions_from_file "./nupln_random.pl"
-                                    (nupln_uniform nupln_set_seed))
+;; Import custom code implemented in Prolog
+!(import_prolog_functions_from_file "./lib_nupln.pl"
+                                    (nupln_uniform
+                                     nupln_set_seed))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
@@ -105,6 +96,132 @@
 ;;
 ;; ⊤ may correspond to the simple truth value (stv 1 1), while ⊥ may
 ;; correspond to the simple truth value (stv 0 1).
+
+;;;;;;;;;;;;;;;;;;
+;; ;;;;;;;;;;;; ;;
+;; ;; Syntax ;; ;;
+;; ;;;;;;;;;;;; ;;
+;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;
+;; isExpression ;;
+;;;;;;;;;;;;;;;;;;
+
+;; Check if $x is an expression
+(= (isExpression $x)
+   (case (get-metatype $x)
+     (;; Base cases
+      (Symbol False)
+      (Variable False)
+      (Grounded False)
+      (Expression True)
+      ($else False))))
+
+;;;;;;;;;;;
+;; Arity ;;
+;;;;;;;;;;;
+
+;; Calculate the arity of a term, which is the number of elements of a
+;; tuple if the metatype is Expression, 0 otherwise.
+(= (getArity $x)
+   (if (isExpression $x)
+       (if (== $x ())
+           0
+           (+ 1 (getArity (cdr-atom $x))))
+       0))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Syntactic Partial Order ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Compare two terms according to lexicographic order.  It is assumed
+;; they are not expression and have the same metatype.
+(= (<ₗ $x $y)
+   NEXT)
+
+;; Compare two terms according to a custom syntactic total order,
+;; especially conceived to facilitate the checking of normality.  The
+;; comparison operator is defined as a less than relationship, <ₛ,
+;; that follows the rules below:
+;;
+;; 1. Variable <ₛ Symbol <ₛ Grounded <ₛ Expression
+;;
+;; 2. If both terms are of the same metatype, either Variable, Symbol
+;;    or Grounded, then lexicographic order is used.
+;;
+;; 3. If both terms, x and y, are of metatype Expression of arity
+;;    respectively n and m, then x <ₛ y if n < m.
+;;
+;; 4. If both terms, x and y, are of metatype Expression of same
+;;    arity, then lexicographic order at the tuple level is used.
+(= (<ₛ $x $y)
+   (case (get-metatype $x)
+     (Variable (case (get-metatype $y)
+                 ((Variable (<ₗ $x $y))
+                  ($else True))))
+     (Symbol (case (get-metatype $y)
+               ((Variable False)
+                (Symbol (<ₗ $x $y))
+                ($else True))))
+     (Grounded (case (get-metatype $y)
+                 ((Expression True)
+                  (Grounded (<ₗ $x $y))
+                  ($else False))))
+     (Expression (case (get-metatype $y)
+                   ((Expression
+                     (let* (($xa (getArity $x))
+                            ($ya (getArity $y)))
+                       ;; Compare arity of $x and $y
+                       (if (< $xa $ya)
+                           True
+                           (if (> $xa $ya)
+                               False
+                               ;; $x and $y have same arity
+                               (if (== $x ())
+                                   (not (== $y ()))
+                                   (if (== $y ())
+                                       False
+                                       ;; $x and $y are both non-empty expressions
+                                       (let* (($xh (car-atom $x))
+                                              ($yh (car-atom $y)))
+                                         (if (<ₛ $xh $yh)
+                                             True
+                                             (if (<ₛ $yh $xh)
+                                                 False
+                                                 ;; $x and $y are probably
+                                                 ;; syntactically identical
+                                                 (<ₛ (cdr-atom $x)
+                                                     (cdr-atom $y)))))))))))
+                    ($else False))))))
+
+;; ;; Test <ₛ
+;; NEXT
+
+;;;;;;;;;;;;;;;;;;;;;
+;; ;;;;;;;;;;;;;;; ;;
+;; ;; Reduction ;; ;;
+;; ;;;;;;;;;;;;;;; ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;
+;; Reduction Checker ;;
+;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Check if the given term is already in normal form
+(= (isNormal $x)
+   (if (isExpression $x)
+       (if (== $x ())
+           True
+           ;; Recursive steps
+           (case $x
+             (;; Nullary application
+              (($f) (isNormal $f))
+              ;; Unary application.  Only ¬ is supported, like in
+              ;; MOSES ¬ must be pushed to the leaves.
+              (($f $x1) (and (== $f ¬) (not (isExpression $x1))))
+              ;; Binary application
+              (($f $x1 $x2) NEXT))))
+       True))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;;;;;;;; ;;
