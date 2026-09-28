@@ -97,6 +97,28 @@
 ;; ⊤ may correspond to the simple truth value (stv 1 1), while ⊥ may
 ;; correspond to the simple truth value (stv 0 1).
 
+;;;;;;;;;;;;;;;;;;;;;;;
+;; ;;;;;;;;;;;;;;;;; ;;
+;; ;; Conditional ;; ;;
+;; ;;;;;;;;;;;;;;;;; ;;
+;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;
+;; Where ;;
+;;;;;;;;;;;
+
+;; Evaluate the branch is the condition is True, prune the branch
+;; otherwise.
+(: where (-> Bool Atom $a))
+(= (where $c $x) (if $c $x (empty)))
+
+;; Test
+!(where True 42)
+!(where False (trace! "Not OK" 42))
+
+;; NEXT: before using ubiquitously, benchmark to make sure it does not
+;;       introduces slow downs.
+
 ;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;; ;;
 ;; ;; Syntax ;; ;;
