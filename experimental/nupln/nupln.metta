@@ -152,74 +152,104 @@
            (+ 1 (getArity (cdr-atom $x))))
        0))
 
-;;;;;;;;;;;;;;;;;;;;;
-;; Syntactic Order ;;
-;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;
+;; Get Arguments ;;
+;;;;;;;;;;;;;;;;;;;
 
-;; ;; Compare two terms according to lexicographic order.  It is assumed
-;; ;; they are not expression and have the same metatype.
-;; (= (<ₗ $x $y)
-;;    NEXT)
+;; Get first argument of (f x1 ... xn)
+(= (getFstArg ($f $x)) $x)
+(= (getFstArg ($f $x1 $x2)) $x1)
+(= (getFstArg ($f $x1 $x2 $x3)) $x1)
 
-;; ;; Compare two terms according to a custom syntactic total order,
-;; ;; especially conceived to facilitate the checking of normality.  The
-;; ;; comparison operator is defined as a less than relationship, <ₛ,
-;; ;; that follows the rules below:
-;; ;;
-;; ;; 1. Variable <ₛ Symbol <ₛ Grounded <ₛ Expression
-;; ;;
-;; ;; 2. If both terms are of the same metatype, either Variable, Symbol
-;; ;;    or Grounded, then lexicographic order is used.
-;; ;;
-;; ;; 3. If both terms, x and y, are of metatype Expression of arity
-;; ;;    respectively n and m, then x <ₛ y if n < m.
-;; ;;
-;; ;; 4. If both terms, x and y, are of metatype Expression of same
-;; ;;    arity, then lexicographic order at the tuple level is used.
-;; (= (<ₛ $x $y)
-;;    (case (get-metatype $x)
-;;      (Variable (case (get-metatype $y)
-;;                  ((Variable (<ₗ $x $y))
-;;                   ($else True))))
-;;      (Symbol (case (get-metatype $y)
-;;                ((Variable False)
-;;                 (Symbol (<ₗ $x $y))
-;;                 ($else True))))
-;;      (Grounded (case (get-metatype $y)
-;;                  ((Expression True)
-;;                   (Grounded (<ₗ $x $y))
-;;                   ($else False))))
-;;      (Expression (case (get-metatype $y)
-;;                    ((Expression
-;;                      (let* (($xa (getArity $x))
-;;                             ($ya (getArity $y)))
-;;                        ;; Compare arity of $x and $y
-;;                        (if (< $xa $ya)
-;;                            True
-;;                            (if (> $xa $ya)
-;;                                False
-;;                                ;; $x and $y have same arity
-;;                                (if (== $x ())
-;;                                    (not (== $y ()))
-;;                                    (if (== $y ())
-;;                                        False
-;;                                        ;; $x and $y are both non-empty expressions
-;;                                        (let* (($xh (car-atom $x))
-;;                                               ($yh (car-atom $y)))
-;;                                          (if (<ₛ $xh $yh)
-;;                                              True
-;;                                              (if (<ₛ $yh $xh)
-;;                                                  False
-;;                                                  ;; $x and $y are probably
-;;                                                  ;; syntactically identical
-;;                                                  (<ₛ (cdr-atom $x)
-;;                                                      (cdr-atom $y)))))))))))
-;;                     ($else False))))))
+;; Get second argument of (f x1 ... xn)
+(= (getSndArg ($f $x1 $x2)) $x2)
+(= (getSndArg ($f $x1 $x2 $x3)) $x2)
 
-;; ;; ;; Test <ₛ
-;; ;; NEXT
+;;;;;;;;;;;;;;;
+;; isLiteral ;;
+;;;;;;;;;;;;;;;
 
-;; NEXT: use syntactic ordering instead !(@< A B)
+;; Check if $x is a literal, meaning that if it is an expression, then
+;; it can only be a negation of a Symbol, Grounded or Variable
+;; (although I am not completely sure about Variable, we'll see).
+(= (isLiteral $x)
+   (if (isExpression $x)
+       (case $x
+         ((($f $x1) (and (== $f ¬) (not (isExpression $x1))))
+          ($else False)))
+       True))
+
+;; Check if $x is a conjunction, meaning its root operator is ∧.
+(= (isConjunction $x)
+   (if (isExpression $x)
+       (case $x
+         ((($f $x1 $x2) (== $f ∧))
+          ($else False)))
+       False))
+
+;; Test isConjunction
+!(test
+  (isConjunction (∧ F G))
+  True)
+!(test
+  (isConjunction F)
+  False)
+
+;;;;;;;;;;;;;;;;
+;; isNegation ;;
+;;;;;;;;;;;;;;;;
+
+;; Check if $x is a negation, meaning its root operator is ¬.
+(= (isNegation $x)
+   (if (isExpression $x)
+       (case $x
+         ((($f $g) (== $f ¬))
+          ($else False)))
+       False))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Custom Syntactic Comparison ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Put $x in a polarized form, meaning, if $x = (¬ $y) then outputs
+;;
+;; (, $y 1)
+;;
+;; otherwise outputs
+;;
+;; (, $x 0)
+;;
+;; This is useful for defining <ₛ the custom syntactic less than
+;; operator to have a negated term contiguously placed to its non
+;; negated version in the strict order.
+(= (polarize $x)
+   (if (isNegation $x)
+       (, (getFstArg $x) 1)
+       (, $x 0)))
+
+;; Define a custom version of @< such that negation is immediately
+;; contiguous in the order, meaning that for instance F is less than
+;; (¬ F), but G is greater than (¬ F).  This is convenient to identify
+;; patterns like (∧ F (¬ F)) which are not in normal form as (¬ F)
+;; will be placed right after F.
+(= (<ₛ $x $y)
+   (if (or (isNegation $x) (isNegation $y))
+       (@< (polarize $x) (polarize $y))
+       (@< $x $y)))
+
+;; Test <ₛ
+!(test
+  (<ₛ F (¬ F))
+  True)
+!(test
+  (<ₛ (¬ F) F)
+  False)
+!(test
+  (<ₛ (¬ F) G)
+  True)
+!(test
+  (<ₛ (¬ F) (∧ F G))
+  True)
 
 ;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;; ;;
@@ -227,25 +257,127 @@
 ;; ;;;;;;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;
-;; Reduction Checker ;;
-;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Normal Form Checker ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Check if the given term is already in normal form
+;; Output True iff the arguments of the given conjunction are properly
+;; sorted.
+(= (isConjSorted (∧ $g $h))
+   (if (isConjunction $h)
+       (<ₛ $g (getFstArg $h))
+       (<ₛ $g $h)))
+
+;; Output True iff the second literal does not correspond to the
+;; negation of the first one.
+(= (isConjNonContradict (∧ $g $h))
+   (if (isConjunction $h)
+       (!= (¬ $g) (getFstArg $h))
+       (!= (¬ $g) $h)))
+
+;; Check if the surface of given term is already in normal form.  The
+;; idea is that since this would be called by the backward chainer to
+;; construct the term, then by structural induction each elements of
+;; its tuple should be in normal form as well.
+;;
+;; Early benchmark indicates that enabling isShallowNormal can
+;; speed-up chaining by multiple orders of magnitude.
+(= (isShallowNormal $x)
+   (if (isExpression $x)
+       (if (== $x ())
+           True
+           (case $x
+             (;; Nullary application
+              (($f) True)
+              ;; Unary application
+              ;; Like in MOSES, ¬ must be pushed to the leaves
+              ((¬ $g) (not (isExpression $g)))
+              ;; Binary application
+              ;; For now only ∧ is supported.
+              ((∧ $g $h)
+               ;; Must be in left associative form, with sorted and
+               ;; non contradicting arguments.
+               (and (not (isConjunction $g))
+                    (and (isConjSorted (∧ $g $h))
+                         (isConjNonContradict (∧ $g $h)))))
+              ($else True))))
+       True))
+
+;; Test isShallowNormal
+!(test
+  (isShallowNormal F)
+  True)
+!(test
+  (isShallowNormal (¬ F))
+  True)
+!(test
+  (isShallowNormal (¬ (¬ F)))
+  False)
+!(test
+  (isShallowNormal (∧ F G))
+  True)
+!(test
+  (isShallowNormal (∧ F F))
+  False)
+!(test
+  (isShallowNormal (∧ F (∧ G H)))
+  True)
+!(test
+  (isShallowNormal (∧ H (∧ G F)))
+  False)
+!(test
+  (isShallowNormal (∧ F (∧ H F)))
+  True)
+!(test
+  (isShallowNormal (∧ F (¬ F)))
+  False)
+!(test
+  (isShallowNormal (∧ F (∧ (¬ F) G)))
+  False)
+
+;; Check if the given term is already in normal form (shallow and
+;; deep).
+;;
+;; Early benchmarks indicate that isNormal is a few fold slower than
+;; isShallowNormal.
 (= (isNormal $x)
    (if (isExpression $x)
        (if (== $x ())
            True
-           ;; Recursive steps
-           (case $x
-             (;; Nullary application
-              (($f) (isNormal $f))
-              ;; Unary application.  Only ¬ is supported, like in
-              ;; MOSES ¬ must be pushed to the leaves.
-              (($f $x1) (and (== $f ¬) (not (isExpression $x1))))
-              ;; Binary application
-              (($f $x1 $x2) NEXT))))
+           (let* (($hd (car-atom $x))
+                  ($tl (cdr-atom $x)))
+             (and (isShallowNormal $x)
+                  (and (isNormal $hd) (isNormal $tl)))))
        True))
+
+;; Test isNormal
+!(test
+  (isNormal F)
+  True)
+!(test
+  (isNormal (¬ F))
+  True)
+!(test
+  (isNormal (¬ (¬ F)))
+  False)
+!(test
+  (isNormal (∧ F G))
+  True)
+!(test
+  (isNormal (∧ F F))
+  False)
+!(test
+  (isNormal (∧ F (∧ G H)))
+  True)
+!(test
+  (isNormal (∧ H (∧ G F)))
+  False)
+!(test
+  (isNormal (∧ F (∧ H F)))
+  False)
+!(test
+  (isNormal (∧ F (∧ (¬ F) G)))
+  False)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;;;;;;;; ;;
@@ -290,7 +422,9 @@
               ;; Recurse on premise 2 to check that $g is or type $a
               ((MkSized $gs (: $g (-> $a Bool)))
                (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))))
-         (MkSized (+ 1 (+ $fs $gs)) (: (∧ $f $g) (-> $a Bool))))
+         (if (isShallowNormal (∧ $f $g))
+             (MkSized (+ 1 (+ $fs $gs)) (: (∧ $f $g) (-> $a Bool)))
+             (empty)))
        (empty)))
    ;; )
 
@@ -524,17 +658,11 @@
 
 ;; Infer what predicates could evaluate to the truth table
 ;; corresponding to (∧ F G)
-!(test
-  (once (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                                 (, (≞ (→ (⊙ 1) $pred) ⊥)
-                                    (≞ (→ (⊙ 2) $pred) ⊥))))))
-  (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
-                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-                 (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-                    (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
-
-;; NEXT: introduce reduction rules to avoid (∧ F F) and the like.
-;; Hint: instead of writing reduction rules, wire into the inference
-;; rules obligations of building components in normal form, via extra
-;; premises.  This should have the effect of pruning upfront anything
-;; that is not in normal form.
+;; !(test
+  !(nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+                            (, (≞ (→ (⊙ 1) $pred) ⊥)
+                               (≞ (→ (⊙ 2) $pred) ⊥)))))
+  ;; (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
+  ;;                (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+  ;;                (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+  ;;                   (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
