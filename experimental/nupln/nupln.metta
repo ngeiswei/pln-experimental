@@ -659,9 +659,9 @@
 ;; Infer what predicates could evaluate to the truth table
 ;; corresponding to (∧ F G)
 ;; !(test
-  !(nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+  !(once (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
                             (, (≞ (→ (⊙ 1) $pred) ⊥)
-                               (≞ (→ (⊙ 2) $pred) ⊥)))))
+                               (≞ (→ (⊙ 2) $pred) ⊥))))))
   ;; (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
   ;;                (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
   ;;                (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
