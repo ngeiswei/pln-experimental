@@ -4,7 +4,11 @@
 ;; Loading the Prolog helper                                          ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; Import custom import library
 !(import! &self (library lib_import.metta))
+
+;; Import memoization library
+!(import! &self (library lib_memo))
 
 ;; Import custom code implemented in Prolog
 !(import_prolog_functions_from_file "./lib_nupln.pl"
@@ -579,6 +583,11 @@
 ;; ;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;
 
+;; Enable memoization for nupln_bc
+!(memoize nupln_bc)
+;; Settings suggested by Minimax-m3
+!(config-memoize (unique-limit 10000) (strategy wtinylfu) (size-limit 5))
+
 ;; Define F and G over values 0, 1 and 2
 !(bind! &kb (new-space))
 !(add-atom &kb (: 0 UInt))
@@ -658,11 +667,11 @@
 
 ;; Infer what predicates could evaluate to the truth table
 ;; corresponding to (∧ F G)
-;; !(test
-  !(once (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                            (, (≞ (→ (⊙ 1) $pred) ⊥)
-                               (≞ (→ (⊙ 2) $pred) ⊥))))))
-  ;; (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
-  ;;                (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-  ;;                (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-  ;;                   (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
+!(test
+  (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+                           (, (≞ (→ (⊙ 1) $pred) ⊥)
+                              (≞ (→ (⊙ 2) $pred) ⊥)))))
+  (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
+                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                 (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+                    (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
