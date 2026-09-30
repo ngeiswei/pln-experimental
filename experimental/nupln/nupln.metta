@@ -498,8 +498,8 @@
                (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))
                ;; Check that (∨ $f $g) is sorted according to the
                ;; normal order with non contradicting arguments.
-               (if (and (isDisjSorted (∧ $f $g)) (isDisjNonContradict (∧ $f $g)))
-                   (MkSized (+ 1 (+ $fs $gs)) (: (∧ $f $g) (-> $a Bool)))
+               (if (and (isDisjSorted (∨ $f $g)) (isDisjNonContradict (∨ $f $g)))
+                   (MkSized (+ 1 (+ $fs $gs)) (: (∨ $f $g) (-> $a Bool)))
                    (empty)))))
        (empty)))
    ;; )
