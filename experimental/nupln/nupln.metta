@@ -954,16 +954,16 @@
                     (≞ (→ (⊙ 1) F) ⊥))))))
 
 ;; Infer what predicates could evaluate to the partial truth table
-;; corresponding to (¬ F).
-;; !(test
-  !(nupln_bc &kb 18 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊥)
-                               (≞ (→ (⊙ 1) $pred) ⊤))))
-  ;; ((MkSized 18 (: (, (cet f0t g0t) (cefl f1f))
-  ;;                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-  ;;                    (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
-  ;;  (MkSized 3 (: (, f0t f1f)
-  ;;                (, (≞ (→ (⊙ 0) F) ⊤)
-  ;;                   (≞ (→ (⊙ 1) F) ⊥))))))
+;; corresponding to (¬ F).  The proof for (¬ F 0) = ⊥ uses (nef f0t)
+;; because (F 0) = ⊤; the proof for (¬ F 1) = ⊤ uses (net f1f) because
+;; (F 1) = ⊥.  Budget: 1 for outer `,` + 7 for (nef f0t) + 7 for (net
+;; f1f) = 15.
+!(test
+  (nupln_bc &kb 15 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊥)
+                              (≞ (→ (⊙ 1) $pred) ⊤))))
+  (MkSized 15 (: (, (nef f0t) (net f1f))
+                 (, (≞ (→ (⊙ 0) (¬ F)) ⊥)
+                    (≞ (→ (⊙ 1) (¬ F)) ⊤)))))
 
 ;; ;; Infer what predicates could evaluate to the truth table
 ;; ;; corresponding to (∧ F G)
