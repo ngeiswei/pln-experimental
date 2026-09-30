@@ -183,21 +183,32 @@
           ($else False)))
        True))
 
-;; Check if $x is a conjunction, meaning its root operator is ∧.
-(= (isConjunction $x)
+;; Check if $x is a binary call with a given operator
+(= (isBinaryOp $op $x)
    (if (isExpression $x)
        (case $x
-         ((($f $x1 $x2) (== $f ∧))
+         ((($op $f $g) True)
           ($else False)))
        False))
+
+;; Check if $x is a conjunction, meaning its root operator is ∧.
+(= (isConjunction $x)
+   (isBinaryOp ∧ $x))
 
 ;; Test isConjunction
 !(test
   (isConjunction (∧ F G))
   True)
 !(test
+  (isConjunction (∨ F G))
+  False)
+!(test
   (isConjunction F)
   False)
+
+;; Check if $x is a disjunction, meaning its root operator is ∨.
+(= (isDisjunction $x)
+   (isBinaryOp ∨ $x))
 
 ;;;;;;;;;;;;;;;;
 ;; isNegation ;;
@@ -272,10 +283,24 @@
        (n< $f (getFstArg $g))
        (n< $f $g)))
 
-;; Output True iff the second literal does not correspond to the
-;; negation of the first one.
+;; Output True iff the second literal of the given conjunction does
+;; not correspond to the negation of the first one.
 (= (isConjNonContradict (∧ $f $g))
    (if (isConjunction $g)
+       (!= (¬ $f) (getFstArg $g))
+       (!= (¬ $f) $g)))
+
+;; Output True iff the arguments of the given disjunction are properly
+;; sorted.
+(= (isDisjSorted (∨ $f $g))
+   (if (isDisjunction $g)
+       (n< $f (getFstArg $g))
+       (n< $f $g)))
+
+;; Output True iff the second literal of the given disjunction does
+;; not correspond to the negation of the first one.
+(= (isDisjNonContradict (∨ $f $g))
+   (if (isDisjunction $g)
        (!= (¬ $f) (getFstArg $g))
        (!= (¬ $f) $g)))
 
@@ -436,14 +461,14 @@
    ;; The budget must be at least 3: 1 for the type checking of $f, 1
    ;; for the type checking of $g, and 1 for the introduction of ∧.
    (if (<= 3 $budget)
-       ;; Recurse on premise 1 to check that $f is or type $a
+       ;; Recurse on premise 1, check that $f is of type (-> $a Bool)
        (let (MkSized $fs (: $f (-> $a Bool)))
          (nupln_bc $kb (- $budget 2) (: $f (-> $a Bool)))
          ;; Check that $f is not a conjunction so that (∧ $f $g) may
          ;; possibly be in left associative form
          (if (isConjunction $f)
              (empty)
-             ;; Recurse on premise 2 to check that $g is or type $a
+             ;; Recurse on premise 2, check that $g is or type (-> $a Bool)
              (let (MkSized $gs (: $g (-> $a Bool)))
                (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))
                ;; Check that (∧ $f $g) is sorted according to the
@@ -453,6 +478,47 @@
                    (empty)))))
        (empty)))
    ;; )
+
+;; Type check disjunction, ∨.  Similar to ∧, see above for more
+;; information.
+(= (nupln_bc $kb $budget (: (∨ $f $g) (-> $a Bool)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (∨ $f $g) (-> $a Bool)))
+   ;; The budget must be at least 3: 1 for the type checking of $f, 1
+   ;; for the type checking of $g, and 1 for the introduction of ∨.
+   (if (<= 3 $budget)
+       ;; Recurse on premise 1, check that $f is of type (-> $a Bool)
+       (let (MkSized $fs (: $f (-> $a Bool)))
+         (nupln_bc $kb (- $budget 2) (: $f (-> $a Bool)))
+         ;; Check that $f is not a disjunction so that (∨ $f $g) may
+         ;; possibly be in left associative form
+         (if (isDisjunction $f)
+             (empty)
+             ;; Recurse on premise 2, check that $g is of type (-> $a Bool)
+             (let (MkSized $gs (: $g (-> $a Bool)))
+               (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))
+               ;; Check that (∨ $f $g) is sorted according to the
+               ;; normal order with non contradicting arguments.
+               (if (and (isDisjSorted (∧ $f $g)) (isDisjNonContradict (∧ $f $g)))
+                   (MkSized (+ 1 (+ $fs $gs)) (: (∧ $f $g) (-> $a Bool)))
+                   (empty)))))
+       (empty)))
+   ;; )
+
+;; Type check negation, ¬. Similar to ∧ and ∨, see above for more
+;; information.
+(= (nupln_bc $kb $budget (: (¬ $f) (-> $a Bool)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (¬ $f) (-> $a Bool)))
+   ;; The budget must be at least 2: 1 for the type checking of $f and
+   ;; 1 for the introduction of ¬.
+   (if (<= 2 $budget)
+       ;; Recurse on premise, check that $f is of type (->  $a Bool)
+       (let (MkSized $fs (: $f (-> $a Bool)))
+         (nupln_bc $kb (- $budget 1) (: $f (-> $a Bool)))
+         ;; Check that $f is not an expression because, as in MOSES, ¬
+         ;; is expected to be on literals only.
+         (if (isExpression $f)
+             (empty)
+             (MkSized (+ 1 $fs) (: (¬ $f) (-> $a Bool)))))))
 
 ;; Type check singleton construction, ⊙.  If $x is of type $a, then
 ;; (⊙ $x) is of type $a -> Bool.
@@ -687,13 +753,37 @@
                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
 
-;; Infer what predicates could evaluate to the truth table
-;; corresponding to (∧ F G)
+;; Infer what predicates could evaluate to the partial truth table
+;; corresponding to F.
 !(test
-  (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                           (, (≞ (→ (⊙ 1) $pred) ⊥)
-                              (≞ (→ (⊙ 2) $pred) ⊥)))))
-  (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
-                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-                 (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-                    (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
+  (collapse (nupln_bc &kb 18 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+                                        (≞ (→ (⊙ 1) $pred) ⊥)))))
+  ((MkSized 18 (: (, (cet f0t g0t) (cefl f1f))
+                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                     (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+   (MkSized 3 (: (, f0t f1f)
+                 (, (≞ (→ (⊙ 0) F) ⊤)
+                    (≞ (→ (⊙ 1) F) ⊥))))))
+
+;; Infer what predicates could evaluate to the partial truth table
+;; corresponding to (¬ F).
+;; !(test
+  !(nupln_bc &kb 18 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊥)
+                               (≞ (→ (⊙ 1) $pred) ⊤))))
+  ;; ((MkSized 18 (: (, (cet f0t g0t) (cefl f1f))
+  ;;                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+  ;;                    (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+  ;;  (MkSized 3 (: (, f0t f1f)
+  ;;                (, (≞ (→ (⊙ 0) F) ⊤)
+  ;;                   (≞ (→ (⊙ 1) F) ⊥))))))
+
+;; ;; Infer what predicates could evaluate to the truth table
+;; ;; corresponding to (∧ F G)
+;; !(test
+;;   (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+;;                            (, (≞ (→ (⊙ 1) $pred) ⊥)
+;;                               (≞ (→ (⊙ 2) $pred) ⊥)))))
+;;   (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
+;;                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+;;                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+;;                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
