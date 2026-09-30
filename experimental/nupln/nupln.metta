@@ -776,14 +776,17 @@
 !(add-atom &kb (: 0 UInt))
 !(add-atom &kb (: 1 UInt))
 !(add-atom &kb (: 2 UInt))
+!(add-atom &kb (: 3 UInt))
 !(add-atom &kb (: F (-> UInt Bool)))
 !(add-atom &kb (: G (-> UInt Bool)))
 !(add-atom &kb (: f0t (≞ (→ (⊙ 0) F) ⊤)))   ; (F 0) = True
 !(add-atom &kb (: f1f (≞ (→ (⊙ 1) F) ⊥)))   ; (F 1) = False
 !(add-atom &kb (: f2t (≞ (→ (⊙ 2) F) ⊤)))   ; (F 1) = True
+!(add-atom &kb (: f3f (≞ (→ (⊙ 3) F) ⊥)))   ; (F 3) = False
 !(add-atom &kb (: g0t (≞ (→ (⊙ 0) G) ⊤)))   ; (F 0) = True
 !(add-atom &kb (: g1t (≞ (→ (⊙ 1) G) ⊤)))   ; (F 1) = True
 !(add-atom &kb (: g2f (≞ (→ (⊙ 2) G) ⊥)))   ; (F 1) = False
+!(add-atom &kb (: g3f (≞ (→ (⊙ 3) G) ⊥)))   ; (G 3) = False
 
 ;; Type check F
 !(test
@@ -799,6 +802,11 @@
 !(test
   (nupln_bc &kb 3 (: (∧ F G) $a))
   (MkSized 3 (: (∧ F G) (-> UInt Bool))))
+
+;; Type check (∨ F G)
+!(test
+  (nupln_bc &kb 3 (: (∨ F G) $a))
+  (MkSized 3 (: (∨ F G) (-> UInt Bool))))
 
 ;; Type check (⊙ 0)
 !(test
@@ -819,6 +827,21 @@
 !(test
   (nupln_bc &kb 8 (: $prf (≞ (→ (⊙ 1) (∧ F G)) $tv)))
   (MkSized 8 (: (cefl f1f) (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+
+;; Evaluate (∨ F G) over 1, true from right since (F 1) is False but (G 1) is True
+!(test
+  (nupln_bc &kb 8 (: $prf (≞ (→ (⊙ 1) (∨ F G)) $tv)))
+  (MkSized 8 (: (detr g1t) (≞ (→ (⊙ 1) (∨ F G)) ⊤))))
+
+;; Evaluate (∨ F G) over 2, true from left since (F 2) is True and (G 2) is False
+!(test
+  (nupln_bc &kb 8 (: $prf (≞ (→ (⊙ 2) (∨ F G)) $tv)))
+  (MkSized 8 (: (detl f2t) (≞ (→ (⊙ 2) (∨ F G)) ⊤))))
+
+;; Evaluate (∨ F G) over 3, false since both (F 3) and (G 3) are False
+!(test
+  (nupln_bc &kb 9 (: $prf (≞ (→ (⊙ 3) (∨ F G)) $tv)))
+  (MkSized 9 (: (def f3f g3f) (≞ (→ (⊙ 3) (∨ F G)) ⊥))))
 
 ;; Find proof of the evaluation of F over 3 values
 !(test
@@ -847,6 +870,20 @@
                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
+
+;; Find proof of (∨ F G) evaluation over 3 values.  On 1 (G true, F
+;; false) the disjunction is True from the right; on 2 (F true, G
+;; false) it is True from the left; on 3 (both false) it is False.
+;; Values are chosen so that exactly one of detl, detr or def applies
+;; at each input, giving a unique proof.
+!(test
+  (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 1) (∨ F G)) ⊤)
+                           (, (≞ (→ (⊙ 2) (∨ F G)) ⊤)
+                              (≞ (→ (⊙ 3) (∨ F G)) ⊥)))))
+  (MkSized 27 (: (, (detr g1t) (, (detl f2t) (def f3f g3f)))
+                 (, (≞ (→ (⊙ 1) (∨ F G)) ⊤)
+                 (, (≞ (→ (⊙ 2) (∨ F G)) ⊤)
+                    (≞ (→ (⊙ 3) (∨ F G)) ⊥))))))
 
 ;; Infer what predicates could evaluate to the partial truth table
 ;; corresponding to F.
