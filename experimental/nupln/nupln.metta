@@ -135,13 +135,7 @@
 
 ;; Check if $x is an expression
 (= (isExpression $x)
-   (case (get-metatype $x)
-     (;; Base cases
-      (Symbol False)
-      (Variable False)
-      (Grounded False)
-      (Expression True)
-      ($else False))))
+   (== (get-metatype $x) Expression))
 
 ;;;;;;;;;;;
 ;; Arity ;;
