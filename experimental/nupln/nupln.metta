@@ -644,6 +644,101 @@
        (empty)))
    ;; )
 
+;; Disjunction evaluation to ⊤, left.  The query
+;;
+;; (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)
+;;
+;; means that ((∨ $f $g) $x) evaluates to True because $f (the left
+;; argument) evaluates to True.  Unlike for conjunction, the right
+;; argument does not need to be evaluated, since True is already
+;; sufficient to make the disjunction True.
+;;
+;; `detl` stands for disjunction evaluates to true from left.
+(= (nupln_bc $kb $budget (: (detl $fp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (detl $fp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+   ;; $x) (∨ $f $g)), 1 for the evaluation of (→ (⊙ $x) $f), and 1 for
+   ;; the introduction of ∨.
+   (if (<= 3 $budget)
+       (let* (;; Recurse on premise 1 to check the correctness of the
+              ;; type of (→ (⊙ $x) (∨ $f $g))
+              ((MkSized $as (: (→ (⊙ $x) (∨ $f $g)) $a))
+               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (∨ $f $g)) $a)))
+              ;; Recurse on premise 2 to make sure that $f evaluates
+              ;; to true on $x.  Note that no premise is required on
+              ;; $g, since True suffices for the disjunction.
+              ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊤)))
+               (nupln_bc $kb (- $budget (+ $as 1)) (: $fp (≞ (→ (⊙ $x) $f) ⊤)))))
+         ;; Build conclusion
+         (MkSized (+ 1 (+ $as $fs)) (: (detl $fp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤))))
+       (empty)))
+   ;; )
+
+;; Disjunction evaluation to ⊤, right.  The query
+;;
+;; (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)
+;;
+;; means that ((∨ $f $g) $x) evaluates to True because $g (the right
+;; argument) evaluates to True.  Unlike for conjunction, the left
+;; argument does not need to be evaluated, since True is already
+;; sufficient to make the disjunction True.
+;;
+;; `detr` stands for disjunction evaluates to true from right.
+(= (nupln_bc $kb $budget (: (detr $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (detr $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+   ;; $x) (∨ $f $g)), 1 for the evaluation of (→ (⊙ $x) $g), and 1 for
+   ;; the introduction of ∨.
+   (if (<= 3 $budget)
+       (let* (;; Recurse on premise 1 to check the correctness of the
+              ;; type of (→ (⊙ $x) (∨ $f $g))
+              ((MkSized $as (: (→ (⊙ $x) (∨ $f $g)) $a))
+               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (∨ $f $g)) $a)))
+              ;; Recurse on premise 2 to make sure that $g evaluates
+              ;; to true on $x.  Note that no premise is required on
+              ;; $f, since True suffices for the disjunction.
+              ((MkSized $gs (: $gp (≞ (→ (⊙ $x) $g) ⊤)))
+               (nupln_bc $kb (- $budget (+ $as 1)) (: $gp (≞ (→ (⊙ $x) $g) ⊤)))))
+         ;; Build conclusion
+         (MkSized (+ 1 (+ $as $gs)) (: (detr $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤))))
+       (empty)))
+   ;; )
+
+;; Disjunction evaluation to ⊥.  The query
+;;
+;; (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)
+;;
+;; means that ((∨ $f $g) $x) evaluates to False.  Unlike for
+;; conjunction where the False of one operand is sufficient, for
+;; disjunction the premises are that both ($f $x) and ($g $x) evaluate
+;; to False.
+;;
+;; `def` stands for disjunction evaluates to false.
+(= (nupln_bc $kb $budget (: (def $fp $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (def $fp $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)))
+   ;; The budget must be at least 4: 1 for the type checking of (→ (⊙
+   ;; $x) (∨ $f $g)), 1 for the evaluation of (→ (⊙ $x) $f), 1 for the
+   ;; evaluation of (→ (⊙ $x) $g), and 1 for the introduction of ∨.
+   (if (<= 4 $budget)
+       (let* (;; Recurse on premise 1 to check the correctness of the
+              ;; type of (→ (⊙ $x) (∨ $f $g))
+              ((MkSized $as (: (→ (⊙ $x) (∨ $f $g)) $a))
+               (nupln_bc $kb (- $budget 3) (: (→ (⊙ $x) (∨ $f $g)) $a)))
+              ;; Recurse on premise 2 to make sure that $f evaluates
+              ;; to false on $x
+              ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊥)))
+               (nupln_bc $kb (- $budget (+ $as 2)) (: $fp (≞ (→ (⊙ $x) $f) ⊥))))
+              ;; Recurse on premise 3 to make sure that $g evaluates
+              ;; to false on $x
+              ((MkSized $gs (: $gp (≞ (→ (⊙ $x) $g) ⊥)))
+               (nupln_bc $kb (- $budget (+ (+ $as $fs) 1))
+                         (: $gp (≞ (→ (⊙ $x) $g) ⊥)))))
+         ;; Build conclusion
+         (MkSized (+ 1 (+ $as (+ $fs $gs)))
+                  (: (def $fp $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊥))))
+       (empty)))
+   ;; )
+
 ;; Product.  The query
 ;;
 ;; (: (, $x $y) (, $a $b))
