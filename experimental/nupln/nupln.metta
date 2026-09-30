@@ -223,7 +223,7 @@
 ;;
 ;; (, $x 0)
 ;;
-;; This is useful for defining <ₛ the custom syntactic less than
+;; This is useful for defining n< the custom syntactic less than
 ;; operator to have a negated term contiguously placed to its non
 ;; negated version in the strict order.
 (= (polarize $x)
@@ -235,24 +235,24 @@
 ;; contiguous in the order, meaning that for instance F is less than
 ;; (¬ F), but G is greater than (¬ F).  This is convenient to identify
 ;; patterns like (∧ F (¬ F)) which are not in normal form as (¬ F)
-;; will be placed right after F.
-(= (<ₛ $x $y)
+;; will be placed right after F.  It is called n< for normal order.
+(= (n< $x $y)
    (if (or (isNegation $x) (isNegation $y))
        (@< (polarize $x) (polarize $y))
        (@< $x $y)))
 
-;; Test <ₛ
+;; Test n<
 !(test
-  (<ₛ F (¬ F))
+  (n< F (¬ F))
   True)
 !(test
-  (<ₛ (¬ F) F)
+  (n< (¬ F) F)
   False)
 !(test
-  (<ₛ (¬ F) G)
+  (n< (¬ F) G)
   True)
 !(test
-  (<ₛ (¬ F) (∧ F G))
+  (n< (¬ F) (∧ F G))
   True)
 
 ;;;;;;;;;;;;;;;;;;;;;
@@ -267,17 +267,17 @@
 
 ;; Output True iff the arguments of the given conjunction are properly
 ;; sorted.
-(= (isConjSorted (∧ $g $h))
-   (if (isConjunction $h)
-       (<ₛ $g (getFstArg $h))
-       (<ₛ $g $h)))
+(= (isConjSorted (∧ $f $g))
+   (if (isConjunction $g)
+       (n< $f (getFstArg $g))
+       (n< $f $g)))
 
 ;; Output True iff the second literal does not correspond to the
 ;; negation of the first one.
-(= (isConjNonContradict (∧ $g $h))
-   (if (isConjunction $h)
-       (!= (¬ $g) (getFstArg $h))
-       (!= (¬ $g) $h)))
+(= (isConjNonContradict (∧ $f $g))
+   (if (isConjunction $g)
+       (!= (¬ $f) (getFstArg $g))
+       (!= (¬ $f) $g)))
 
 ;; Check if the surface of given term is already in normal form.  The
 ;; idea is that since this would be called by the backward chainer to
@@ -286,6 +286,12 @@
 ;;
 ;; Early benchmark indicates that enabling isShallowNormal can
 ;; speed-up chaining by multiple orders of magnitude.
+;;
+;; Actually the code is being broken up inside inference rules for
+;; earlier pruning, that way pruning can occur halfway through the
+;; proof.  The speed-up is not enormous but significant, at least 2x,
+;; probably more.  That code remains here under this form to test
+;; normal form checking ideas.
 (= (isShallowNormal $x)
    (if (isExpression $x)
        (if (== $x ())
@@ -407,28 +413,44 @@
 ;; (∧ F G)
 ;;
 ;; to be well typed, F and G must be of the same type.  For now the
-;; type is assumed to be a -> Bool but this will probably need to be
-;; generalized to a -> b, depending on how predicate arity is handled.
-;; Failing to specialize this type check by enforcing a function or a
-;; predicate results in producing weird things like
+;; type is assumed to be
+;;
+;; a -> Bool
+;;
+;; but this will probably need to be generalized to a -> b, depending
+;; on how predicate arity is handled.  Failing to specialize this type
+;; check by enforcing a function or a predicate results in producing
+;; weird things like
 ;;
 ;; (: (∧ g0t g0t) (≞ (→ (⊙ 0) G) ⊤))
 ;;
 ;; thus why we need to be more specific.
+;;
+;; Additionally it checks that (∧ $f $g) is in normal form as it
+;; progressively builds it.  The criteria to check are that (∧ $f $g)
+;; be in left associative form, with sorted and non contradicting
+;; arguments.  Checking is done as early as possible for maximum
+;; pruning.
 (= (nupln_bc $kb $budget (: (∧ $f $g) (-> $a Bool)))
    ;; (trace! (👁 nupln_bc $kb $budget (: (∧ $f $g) (-> $a Bool)))
    ;; The budget must be at least 3: 1 for the type checking of $f, 1
    ;; for the type checking of $g, and 1 for the introduction of ∧.
    (if (<= 3 $budget)
-       (let* (;; Recurse on premise 1 to check that $f is or type $a
-              ((MkSized $fs (: $f (-> $a Bool)))
-               (nupln_bc $kb (- $budget 2) (: $f (-> $a Bool))))
-              ;; Recurse on premise 2 to check that $g is or type $a
-              ((MkSized $gs (: $g (-> $a Bool)))
-               (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))))
-         (if (isShallowNormal (∧ $f $g))
-             (MkSized (+ 1 (+ $fs $gs)) (: (∧ $f $g) (-> $a Bool)))
-             (empty)))
+       ;; Recurse on premise 1 to check that $f is or type $a
+       (let (MkSized $fs (: $f (-> $a Bool)))
+         (nupln_bc $kb (- $budget 2) (: $f (-> $a Bool)))
+         ;; Check that $f is not a conjunction so that (∧ $f $g) may
+         ;; possibly be in left associative form
+         (if (isConjunction $f)
+             (empty)
+             ;; Recurse on premise 2 to check that $g is or type $a
+             (let (MkSized $gs (: $g (-> $a Bool)))
+               (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))
+               ;; Check that (∧ $f $g) is sorted according to the
+               ;; normal order with non contradicting arguments.
+               (if (and (isConjSorted (∧ $f $g)) (isConjNonContradict (∧ $f $g)))
+                   (MkSized (+ 1 (+ $fs $gs)) (: (∧ $f $g) (-> $a Bool)))
+                   (empty)))))
        (empty)))
    ;; )
 
