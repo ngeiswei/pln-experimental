@@ -739,6 +739,62 @@
        (empty)))
    ;; )
 
+;; Negation evaluation to ⊤.  The query
+;;
+;; (≞ (→ (⊙ $x) (¬ $f)) ⊤)
+;;
+;; means that ((¬ $f) $x) evaluates to True.  This is the case when
+;; ($f $x) evaluates to False.
+;;
+;; `net` stands for negation evaluates to true.
+(= (nupln_bc $kb $budget (: (net $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊤)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (net $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊤)))
+   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+   ;; $x) (¬ $f)), 1 for the evaluation of (→ (⊙ $x) $f), and 1 for
+   ;; the introduction of ¬.
+   (if (<= 3 $budget)
+       (let* (;; Recurse on premise 1 to check the correctness of the
+              ;; type of (→ (⊙ $x) (¬ $f))
+              ((MkSized $as (: (→ (⊙ $x) (¬ $f)) $a))
+               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (¬ $f)) $a)))
+              ;; Recurse on premise 2 to make sure that $f evaluates
+              ;; to false on $x
+              ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊥)))
+               (nupln_bc $kb (- $budget (+ $as 1))
+                         (: $fp (≞ (→ (⊙ $x) $f) ⊥)))))
+         ;; Build conclusion
+         (MkSized (+ 1 (+ $as $fs)) (: (net $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊤))))
+       (empty)))
+   ;; )
+
+;; Negation evaluation to ⊥.  The query
+;;
+;; (≞ (→ (⊙ $x) (¬ $f)) ⊥)
+;;
+;; means that ((¬ $f) $x) evaluates to False.  This is the case when
+;; ($f $x) evaluates to True.
+;;
+;; `nef` stands for negation evaluates to false.
+(= (nupln_bc $kb $budget (: (nef $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊥)))
+   ;; (trace! (👁 nupln_bc $kb $budget (: (nef $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊥)))
+   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+   ;; $x) (¬ $f)), 1 for the evaluation of (→ (⊙ $x) $f), and 1 for
+   ;; the introduction of ¬.
+   (if (<= 3 $budget)
+       (let* (;; Recurse on premise 1 to check the correctness of the
+              ;; type of (→ (⊙ $x) (¬ $f))
+              ((MkSized $as (: (→ (⊙ $x) (¬ $f)) $a))
+               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (¬ $f)) $a)))
+              ;; Recurse on premise 2 to make sure that $f evaluates
+              ;; to true on $x
+              ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊤)))
+               (nupln_bc $kb (- $budget (+ $as 1))
+                         (: $fp (≞ (→ (⊙ $x) $f) ⊤)))))
+         ;; Build conclusion
+         (MkSized (+ 1 (+ $as $fs)) (: (nef $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊥))))
+       (empty)))
+   ;; )
+
 ;; Product.  The query
 ;;
 ;; (: (, $x $y) (, $a $b))
