@@ -328,14 +328,24 @@
 ;; ;;;;;;;;;;;;;;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;;;;;;;;;;;;;;;;;;;;;
+;; Control Structure ;;
+;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Define control type and constructors for inference control
+(: Control Type)
+(: MkControl (-> Number                 ; Maximum size budget
+                 Number                 ; Maximum depth budget
+                 Control))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; nuPLN Backward Chainer ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Base case
-(= (nupln_bc $kb $budget (: $x $a))
-   ;; (trace! (👁 nupln_bc_base $kb $budget (: $x $a))
-   (if (<= 1 $budget)
+(= (nupln_bc $kb (MkControl $size $depth) (: $x $a))
+   ;; (trace! (👁 nupln_bc_base $kb (MkControl $size $depth) (: $x $a))
+   (if (and (<= 1 $size) (<= 1 $depth))
        (match $kb (: $x $a) (MkSized 1 (: $x $a)))
        (empty)))
    ;; )
@@ -364,21 +374,23 @@
 ;; be in left associative form, with sorted and non contradicting
 ;; arguments.  Checking is done as early as possible for maximum
 ;; pruning.
-(= (nupln_bc $kb $budget (: (∧ $f $g) (-> $a Bool)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (∧ $f $g) (-> $a Bool)))
-   ;; The budget must be at least 3: 1 for the type checking of $f, 1
+(= (nupln_bc $kb (MkControl $size $depth) (: (∧ $f $g) (-> $a Bool)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (∧ $f $g) (-> $a Bool)))
+   ;; The size must be at least 3: 1 for the type checking of $f, 1
    ;; for the type checking of $g, and 1 for the introduction of ∧.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        ;; Recurse on premise 1, check that $f is of type (-> $a Bool)
        (let (MkSized $fs (: $f (-> $a Bool)))
-         (nupln_bc $kb (- $budget 2) (: $f (-> $a Bool)))
+         (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                   (: $f (-> $a Bool)))
          ;; Check that $f is not a conjunction so that (∧ $f $g) may
          ;; possibly be in left associative form
          (if (isConjunction $f)
              (empty)
              ;; Recurse on premise 2, check that $g is or type (-> $a Bool)
              (let (MkSized $gs (: $g (-> $a Bool)))
-               (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))
+               (nupln_bc $kb (MkControl (- $size (+ $fs 1)) (- $depth 1))
+                         (: $g (-> $a Bool)))
                ;; Check that (∧ $f $g) is sorted according to the
                ;; normal order with non contradicting arguments.
                (if (and (isConjSorted (∧ $f $g)) (isConjNonContradict (∧ $f $g)))
@@ -389,21 +401,23 @@
 
 ;; Type check disjunction, ∨.  Similar to ∧, see above for more
 ;; information.
-(= (nupln_bc $kb $budget (: (∨ $f $g) (-> $a Bool)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (∨ $f $g) (-> $a Bool)))
-   ;; The budget must be at least 3: 1 for the type checking of $f, 1
+(= (nupln_bc $kb (MkControl $size $depth) (: (∨ $f $g) (-> $a Bool)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (∨ $f $g) (-> $a Bool)))
+   ;; The size must be at least 3: 1 for the type checking of $f, 1
    ;; for the type checking of $g, and 1 for the introduction of ∨.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        ;; Recurse on premise 1, check that $f is of type (-> $a Bool)
        (let (MkSized $fs (: $f (-> $a Bool)))
-         (nupln_bc $kb (- $budget 2) (: $f (-> $a Bool)))
+         (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                   (: $f (-> $a Bool)))
          ;; Check that $f is not a disjunction so that (∨ $f $g) may
          ;; possibly be in left associative form
          (if (isDisjunction $f)
              (empty)
              ;; Recurse on premise 2, check that $g is of type (-> $a Bool)
              (let (MkSized $gs (: $g (-> $a Bool)))
-               (nupln_bc $kb (- $budget (+ $fs 1)) (: $g (-> $a Bool)))
+               (nupln_bc $kb (MkControl (- $size (+ $fs 1)) (- $depth 1))
+                         (: $g (-> $a Bool)))
                ;; Check that (∨ $f $g) is sorted according to the
                ;; normal order with non contradicting arguments.
                (if (and (isDisjSorted (∨ $f $g)) (isDisjNonContradict (∨ $f $g)))
@@ -414,14 +428,15 @@
 
 ;; Type check negation, ¬. Similar to ∧ and ∨, see above for more
 ;; information.
-(= (nupln_bc $kb $budget (: (¬ $f) (-> $a Bool)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (¬ $f) (-> $a Bool)))
-   ;; The budget must be at least 2: 1 for the type checking of $f and
+(= (nupln_bc $kb (MkControl $size $depth) (: (¬ $f) (-> $a Bool)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (¬ $f) (-> $a Bool)))
+   ;; The size must be at least 2: 1 for the type checking of $f and
    ;; 1 for the introduction of ¬.
-   (if (<= 2 $budget)
+   (if (and (<= 2 $size) (<= 2 $depth))
        ;; Recurse on premise, check that $f is of type (->  $a Bool)
        (let (MkSized $fs (: $f (-> $a Bool)))
-         (nupln_bc $kb (- $budget 1) (: $f (-> $a Bool)))
+         (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
+                   (: $f (-> $a Bool)))
          ;; Check that $f is not an expression because, as in MOSES, ¬
          ;; is expected to be on literals only.
          (if (isExpression $f)
@@ -430,13 +445,14 @@
 
 ;; Type check singleton construction, ⊙.  If $x is of type $a, then
 ;; (⊙ $x) is of type $a -> Bool.
-(= (nupln_bc $kb $budget (: (⊙ $x) (-> $a Bool)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (⊙ $x) (-> $a Bool)))
-   ;; The budget must be at least 2: 1 for the type checking of $x,
+(= (nupln_bc $kb (MkControl $size $depth) (: (⊙ $x) (-> $a Bool)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (⊙ $x) (-> $a Bool)))
+   ;; The size must be at least 2: 1 for the type checking of $x,
    ;; and 1 for the introduction of ⊙.
-   (if (<= 2 $budget)
-       (let (MkSized $xs (: $x $a)) (nupln_bc $kb (- $budget 1) (: $x $a))
-            (MkSized (+ 1 $xs) (: (⊙ $x) (-> $a Bool))))
+   (if (and (<= 2 $size) (<= 2 $depth))
+       (let (MkSized $xs (: $x $a))
+         (nupln_bc $kb (MkControl (- $size 1) (- $depth 1)) (: $x $a))
+         (MkSized (+ 1 $xs) (: (⊙ $x) (-> $a Bool))))
        (empty)))
    ;; )
 
@@ -446,22 +462,23 @@
 ;; (→ F G)
 ;;
 ;; to be well typed, F and G must be of the same type.  Also the type
-;; of an implication is not itself a predicate but a PLN statement.
-;; It might be that in the future we do type it as a predicate of
-;; perhaps a conditional predicate but for now it is merely a PLN
-;; statement.
-(= (nupln_bc $kb $budget (: (→ $f $g) Statement))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (→ $f $g) Statement))
-   ;; The budget must be at least 3: 1 for the type checking of $f, 1
+;; of an implication is for now labelled as a (CPred (-> $a Bool))
+;; which stands for a conditioned predicate.  This may change in the
+;; future though.
+(= (nupln_bc $kb (MkControl $size $depth) (: (→ $f $g) (CPred (-> $a Bool))))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (→ $f $g) Statement))
+   ;; The size must be at least 3: 1 for the type checking of $f, 1
    ;; for the type checking of $g, and 1 for the introduction of →.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check that $f is or type $a
-              ((MkSized $fs (: $f $a))
-               (nupln_bc $kb (- $budget 2) (: $f $a)))
+              ((MkSized $fs (: $f (-> $a Bool)))
+               (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                         (: $f (-> $a Bool))))
               ;; Recurse on premise 2 to check that $g is or type $a
-              ((MkSized $gs (: $g $a))
-               (nupln_bc $kb (- $budget (+ $fs 1)) (: $g $a))))
-         (MkSized (+ 1 (+ $fs $gs)) (: (→ $f $g) Statement)))
+              ((MkSized $gs (: $g (-> $a Bool)))
+               (nupln_bc $kb (MkControl (- $size (+ $fs 1)) (- $depth 1))
+                         (: $g (-> $a Bool)))))
+         (MkSized (+ 1 (+ $fs $gs)) (: (→ $f $g) (CPred (-> $a Bool)))))
        (empty)))
    ;; )
 
@@ -473,28 +490,38 @@
 ;; both ($f $x) and ($g $x) evaluate to True.
 ;;
 ;; `cet` stands for conjunction evaluate to true.
-(= (nupln_bc $kb $budget (: (cet $fp $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (cet $fp $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)))
-   ;; The budget must be at least 4: 1 for the type checking of (→ (⊙
+;;
+;; Note that (→ (⊙ $x) (∧ $f $g)) is placed as proof argument for full
+;; transparancy since it cost size and depth budgets.
+(= (nupln_bc $kb (MkControl $size $depth)
+             (: (cet (→ (⊙ $x) (∧ $f $g)) $fp $gp)
+                (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
+   ;;            (: (cet (→ (⊙ $x) (∧ $f $g)) $fp $gp)
+   ;;               (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)))
+   ;; The size must be at least 4: 1 for the type checking of (→ (⊙
    ;; $x) (∧ $f $g)), 1 for the evaluation of (→ (⊙ $x) $f), 1 for the
    ;; evaluation of (→ (⊙ $x) $g), and 1 for the introduction of ∧.
-   (if (<= 4 $budget)
+   (if (and (<= 4 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check the correctness of the
               ;; type of (→ (⊙ $x) (∧ $f $g))
               ((MkSized $as (: (→ (⊙ $x) (∧ $f $g)) $a))
-               (nupln_bc $kb (- $budget 3) (: (→ (⊙ $x) (∧ $f $g)) $a)))
+               (nupln_bc $kb (MkControl (- $size 3) (- $depth 1))
+                         (: (→ (⊙ $x) (∧ $f $g)) $a)))
               ;; Recurse on premise 2 to make sure that $f evaluates
               ;; to true on $x
               ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊤)))
-               (nupln_bc $kb (- $budget (+ $as 2)) (: $fp (≞ (→ (⊙ $x) $f) ⊤))))
+               (nupln_bc $kb (MkControl (- $size (+ $as 2)) (- $depth 1))
+                         (: $fp (≞ (→ (⊙ $x) $f) ⊤))))
               ;; Recurse on premise 3 to make sure that $g evaluates
               ;; to true on $x
               ((MkSized $gs (: $gp (≞ (→ (⊙ $x) $g) ⊤)))
-               (nupln_bc $kb (- $budget (+ (+ $as $fs) 1))
+               (nupln_bc $kb (MkControl (- $size (+ (+ $as $fs) 1)) (- $depth 1))
                          (: $gp (≞ (→ (⊙ $x) $g) ⊤)))))
          ;; Build conclusion
          (MkSized (+ 1 (+ $as (+ $fs $gs)))
-                  (: (cet $fp $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊤))))
+                  (: (cet (→ (⊙ $x) (∧ $f $g)) $fp $gp)
+                     (≞ (→ (⊙ $x) (∧ $f $g)) ⊤))))
        (empty)))
    ;; )
 
@@ -506,22 +533,33 @@
 ;; argument.  The premise is that ($f $x) evaluates to False.
 ;;
 ;; `cefl` stands for conjunction evaluates to false from left.
-(= (nupln_bc $kb $budget (: (cefl $fp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (cefl $fp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
-   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+;;
+;; Note that (→ (⊙ $x) (∧ $f $g)) is placed as proof argument for full
+;; transparancy since it cost size and depth budgets.
+(= (nupln_bc $kb (MkControl $size $depth)
+             (: (cefl (→ (⊙ $x) (∧ $f $g)) $fp)
+                (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
+   ;;            (: (cefl (→ (⊙ $x) (∧ $f $g)) $fp)
+   ;;               (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+   ;; The size must be at least 3: 1 for the type checking of (→ (⊙
    ;; $x) (∧ $f $g)), 1 for the evaluation of (→ (⊙ $x) $f), and 1 for
    ;; the introduction of ∧.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check the correctness of the
               ;; type of (→ (⊙ $x) (∧ $f $g))
               ((MkSized $as (: (→ (⊙ $x) (∧ $f $g)) $a))
-               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (∧ $f $g)) $a)))
+               (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                         (: (→ (⊙ $x) (∧ $f $g)) $a)))
               ;; Recurse on premise 2 to make sure that $f evaluates
               ;; to false on $x
               ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊥)))
-               (nupln_bc $kb (- $budget (+ $as 1)) (: $fp (≞ (→ (⊙ $x) $f) ⊥)))))
+               (nupln_bc $kb (MkControl (- $size (+ $as 1)) (- $depth 1))
+                         (: $fp (≞ (→ (⊙ $x) $f) ⊥)))))
          ;; Build conclusion
-         (MkSized (+ 1 (+ $as $fs)) (: (cefl $fp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥))))
+         (MkSized (+ 1 (+ $as $fs))
+                  (: (cefl (→ (⊙ $x) (∧ $f $g)) $fp)
+                     (≞ (→ (⊙ $x) (∧ $f $g)) ⊥))))
        (empty)))
    ;; )
 
@@ -533,22 +571,33 @@
 ;; argument.  The premise is that ($g $x) evaluates to False.
 ;;
 ;; `cefr` stands for conjunction evaluates to false from right.
-(= (nupln_bc $kb $budget (: (cefr $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (cefr $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
-   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+;;
+;; Note that (→ (⊙ $x) (∧ $f $g)) is placed as proof argument for full
+;; transparancy since it cost size and depth budgets.
+(= (nupln_bc $kb (MkControl $size $depth)
+             (: (cefr (→ (⊙ $x) (∧ $f $g)) $gp)
+                (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
+   ;;            (: (cefr (→ (⊙ $x) (∧ $f $g)) $gp)
+   ;;               (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+   ;; The size must be at least 3: 1 for the type checking of (→ (⊙
    ;; $x) (∧ $f $g)), 1 for the evaluation of (→ (⊙ $x) $g), and 1 for
    ;; the introduction of ∧.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check the correctness of the
               ;; type of (→ (⊙ $x) (∧ $f $g))
               ((MkSized $as (: (→ (⊙ $x) (∧ $f $g)) $a))
-               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (∧ $f $g)) $a)))
+               (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                         (: (→ (⊙ $x) (∧ $f $g)) $a)))
               ;; Recurse on premise 2 to make sure that $g evaluates
               ;; to false on $x
               ((MkSized $gs (: $gp (≞ (→ (⊙ $x) $g) ⊥)))
-               (nupln_bc $kb (- $budget (+ $as 1)) (: $gp (≞ (→ (⊙ $x) $g) ⊥)))))
+               (nupln_bc $kb (MkControl (- $size (+ $as 1)) (- $depth 1))
+                         (: $gp (≞ (→ (⊙ $x) $g) ⊥)))))
          ;; Build conclusion
-         (MkSized (+ 1 (+ $as $gs)) (: (cefr $gp) (≞ (→ (⊙ $x) (∧ $f $g)) ⊥))))
+         (MkSized (+ 1 (+ $as $gs))
+                  (: (cefr (→ (⊙ $x) (∧ $f $g)) $gp)
+                     (≞ (→ (⊙ $x) (∧ $f $g)) ⊥))))
        (empty)))
    ;; )
 
@@ -562,23 +611,34 @@
 ;; sufficient to make the disjunction True.
 ;;
 ;; `detl` stands for disjunction evaluates to true from left.
-(= (nupln_bc $kb $budget (: (detl $fp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (detl $fp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
-   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+;;
+;; Note that (→ (⊙ $x) (∨ $f $g)) is placed as proof argument for full
+;; transparancy since it cost size and depth budgets.
+(= (nupln_bc $kb (MkControl $size $depth)
+             (: (detl (→ (⊙ $x) (∨ $f $g)) $fp)
+                (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
+   ;;            (: (detl (→ (⊙ $x) (∨ $f $g)) $fp)
+   ;;               (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;; The size must be at least 3: 1 for the type checking of (→ (⊙
    ;; $x) (∨ $f $g)), 1 for the evaluation of (→ (⊙ $x) $f), and 1 for
    ;; the introduction of ∨.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check the correctness of the
               ;; type of (→ (⊙ $x) (∨ $f $g))
               ((MkSized $as (: (→ (⊙ $x) (∨ $f $g)) $a))
-               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (∨ $f $g)) $a)))
+               (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                         (: (→ (⊙ $x) (∨ $f $g)) $a)))
               ;; Recurse on premise 2 to make sure that $f evaluates
               ;; to true on $x.  Note that no premise is required on
               ;; $g, since True suffices for the disjunction.
               ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊤)))
-               (nupln_bc $kb (- $budget (+ $as 1)) (: $fp (≞ (→ (⊙ $x) $f) ⊤)))))
+               (nupln_bc $kb (MkControl (- $size (+ $as 1)) (- $depth 1))
+                         (: $fp (≞ (→ (⊙ $x) $f) ⊤)))))
          ;; Build conclusion
-         (MkSized (+ 1 (+ $as $fs)) (: (detl $fp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤))))
+         (MkSized (+ 1 (+ $as $fs))
+                  (: (detl (→ (⊙ $x) (∨ $f $g)) $fp)
+                     (≞ (→ (⊙ $x) (∨ $f $g)) ⊤))))
        (empty)))
    ;; )
 
@@ -592,23 +652,34 @@
 ;; sufficient to make the disjunction True.
 ;;
 ;; `detr` stands for disjunction evaluates to true from right.
-(= (nupln_bc $kb $budget (: (detr $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (detr $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
-   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+;;
+;; Note that (→ (⊙ $x) (∨ $f $g)) is placed as proof argument for full
+;; transparancy since it cost size and depth budgets.
+(= (nupln_bc $kb (MkControl $size $depth)
+             (: (detr (→ (⊙ $x) (∨ $f $g)) $gp)
+                (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
+   ;;            (: (detr (→ (⊙ $x) (∨ $f $g)) $gp)
+   ;;               (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;; The size must be at least 3: 1 for the type checking of (→ (⊙
    ;; $x) (∨ $f $g)), 1 for the evaluation of (→ (⊙ $x) $g), and 1 for
    ;; the introduction of ∨.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check the correctness of the
               ;; type of (→ (⊙ $x) (∨ $f $g))
               ((MkSized $as (: (→ (⊙ $x) (∨ $f $g)) $a))
-               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (∨ $f $g)) $a)))
+               (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                         (: (→ (⊙ $x) (∨ $f $g)) $a)))
               ;; Recurse on premise 2 to make sure that $g evaluates
               ;; to true on $x.  Note that no premise is required on
               ;; $f, since True suffices for the disjunction.
               ((MkSized $gs (: $gp (≞ (→ (⊙ $x) $g) ⊤)))
-               (nupln_bc $kb (- $budget (+ $as 1)) (: $gp (≞ (→ (⊙ $x) $g) ⊤)))))
+               (nupln_bc $kb (MkControl (- $size (+ $as 1)) (- $depth 1))
+                         (: $gp (≞ (→ (⊙ $x) $g) ⊤)))))
          ;; Build conclusion
-         (MkSized (+ 1 (+ $as $gs)) (: (detr $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊤))))
+         (MkSized (+ 1 (+ $as $gs))
+                  (: (detr (→ (⊙ $x) (∨ $f $g)) $gp)
+                     (≞ (→ (⊙ $x) (∨ $f $g)) ⊤))))
        (empty)))
    ;; )
 
@@ -622,28 +693,38 @@
 ;; to False.
 ;;
 ;; `def` stands for disjunction evaluates to false.
-(= (nupln_bc $kb $budget (: (def $fp $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (def $fp $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)))
-   ;; The budget must be at least 4: 1 for the type checking of (→ (⊙
+;;
+;; Note that (→ (⊙ $x) (∨ $f $g)) is placed as proof argument for full
+;; transparancy since it cost size and depth budgets.
+(= (nupln_bc $kb (MkControl $size $depth)
+             (: (def (→ (⊙ $x) (∨ $f $g)) $fp $gp)
+                (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
+   ;;            (: (def (→ (⊙ $x) (∨ $f $g)) $fp $gp)
+   ;;               (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)))
+   ;; The size must be at least 4: 1 for the type checking of (→ (⊙
    ;; $x) (∨ $f $g)), 1 for the evaluation of (→ (⊙ $x) $f), 1 for the
    ;; evaluation of (→ (⊙ $x) $g), and 1 for the introduction of ∨.
-   (if (<= 4 $budget)
+   (if (and (<= 4 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check the correctness of the
               ;; type of (→ (⊙ $x) (∨ $f $g))
               ((MkSized $as (: (→ (⊙ $x) (∨ $f $g)) $a))
-               (nupln_bc $kb (- $budget 3) (: (→ (⊙ $x) (∨ $f $g)) $a)))
+               (nupln_bc $kb (MkControl (- $size 3) (- $depth 1))
+                         (: (→ (⊙ $x) (∨ $f $g)) $a)))
               ;; Recurse on premise 2 to make sure that $f evaluates
               ;; to false on $x
               ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊥)))
-               (nupln_bc $kb (- $budget (+ $as 2)) (: $fp (≞ (→ (⊙ $x) $f) ⊥))))
+               (nupln_bc $kb (MkControl (- $size (+ $as 2)) (- $depth 1))
+                         (: $fp (≞ (→ (⊙ $x) $f) ⊥))))
               ;; Recurse on premise 3 to make sure that $g evaluates
               ;; to false on $x
               ((MkSized $gs (: $gp (≞ (→ (⊙ $x) $g) ⊥)))
-               (nupln_bc $kb (- $budget (+ (+ $as $fs) 1))
+               (nupln_bc $kb (MkControl (- $size (+ (+ $as $fs) 1)) (- $depth 1))
                          (: $gp (≞ (→ (⊙ $x) $g) ⊥)))))
          ;; Build conclusion
          (MkSized (+ 1 (+ $as (+ $fs $gs)))
-                  (: (def $fp $gp) (≞ (→ (⊙ $x) (∨ $f $g)) ⊥))))
+                  (: (def (→ (⊙ $x) (∨ $f $g)) $fp $gp)
+                     (≞ (→ (⊙ $x) (∨ $f $g)) ⊥))))
        (empty)))
    ;; )
 
@@ -655,23 +736,33 @@
 ;; ($f $x) evaluates to False.
 ;;
 ;; `net` stands for negation evaluates to true.
-(= (nupln_bc $kb $budget (: (net $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊤)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (net $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊤)))
-   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+;;
+;; Note that (→ (⊙ $x) (¬ $f)) is placed as proof argument for full
+;; transparancy since it cost size and depth budgets.
+(= (nupln_bc $kb (MkControl $size $depth)
+             (: (net (→ (⊙ $x) (¬ $f)) $fp)
+                (≞ (→ (⊙ $x) (¬ $f)) ⊤)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
+   ;;            (: (net (→ (⊙ $x) (¬ $f)) $fp)
+   ;;               (≞ (→ (⊙ $x) (¬ $f)) ⊤)))
+   ;; The size must be at least 3: 1 for the type checking of (→ (⊙
    ;; $x) (¬ $f)), 1 for the evaluation of (→ (⊙ $x) $f), and 1 for
    ;; the introduction of ¬.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check the correctness of the
               ;; type of (→ (⊙ $x) (¬ $f))
               ((MkSized $as (: (→ (⊙ $x) (¬ $f)) $a))
-               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (¬ $f)) $a)))
+               (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                         (: (→ (⊙ $x) (¬ $f)) $a)))
               ;; Recurse on premise 2 to make sure that $f evaluates
               ;; to false on $x
               ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊥)))
-               (nupln_bc $kb (- $budget (+ $as 1))
+               (nupln_bc $kb (MkControl (- $size (+ $as 1)) (- $depth 1))
                          (: $fp (≞ (→ (⊙ $x) $f) ⊥)))))
          ;; Build conclusion
-         (MkSized (+ 1 (+ $as $fs)) (: (net $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊤))))
+         (MkSized (+ 1 (+ $as $fs))
+                  (: (net (→ (⊙ $x) (¬ $f)) $fp)
+                     (≞ (→ (⊙ $x) (¬ $f)) ⊤))))
        (empty)))
    ;; )
 
@@ -683,23 +774,33 @@
 ;; ($f $x) evaluates to True.
 ;;
 ;; `nef` stands for negation evaluates to false.
-(= (nupln_bc $kb $budget (: (nef $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊥)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (nef $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊥)))
-   ;; The budget must be at least 3: 1 for the type checking of (→ (⊙
+;;
+;; Note that (→ (⊙ $x) (¬ $f)) is placed as proof argument for full
+;; transparancy since it cost size and depth budgets.
+(= (nupln_bc $kb (MkControl $size $depth)
+             (: (nef (→ (⊙ $x) (¬ $f)) $fp)
+                (≞ (→ (⊙ $x) (¬ $f)) ⊥)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
+   ;;            (: (nef (→ (⊙ $x) (¬ $f)) $fp)
+   ;;               (≞ (→ (⊙ $x) (¬ $f)) ⊥)))
+   ;; The size must be at least 3: 1 for the type checking of (→ (⊙
    ;; $x) (¬ $f)), 1 for the evaluation of (→ (⊙ $x) $f), and 1 for
    ;; the introduction of ¬.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 2 $depth))
        (let* (;; Recurse on premise 1 to check the correctness of the
               ;; type of (→ (⊙ $x) (¬ $f))
               ((MkSized $as (: (→ (⊙ $x) (¬ $f)) $a))
-               (nupln_bc $kb (- $budget 2) (: (→ (⊙ $x) (¬ $f)) $a)))
+               (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
+                         (: (→ (⊙ $x) (¬ $f)) $a)))
               ;; Recurse on premise 2 to make sure that $f evaluates
               ;; to true on $x
               ((MkSized $fs (: $fp (≞ (→ (⊙ $x) $f) ⊤)))
-               (nupln_bc $kb (- $budget (+ $as 1))
+               (nupln_bc $kb (MkControl (- $size (+ $as 1)) (- $depth 1))
                          (: $fp (≞ (→ (⊙ $x) $f) ⊤)))))
          ;; Build conclusion
-         (MkSized (+ 1 (+ $as $fs)) (: (nef $fp) (≞ (→ (⊙ $x) (¬ $f)) ⊥))))
+         (MkSized (+ 1 (+ $as $fs))
+                  (: (nef (→ (⊙ $x) (¬ $f)) $fp)
+                     (≞ (→ (⊙ $x) (¬ $f)) ⊥))))
        (empty)))
    ;; )
 
@@ -708,19 +809,26 @@
 ;; (: (, $x $y) (, $a $b))
 ;;
 ;; means that both $a $b must be proven for (, $a $b) to be proven.
-(= (nupln_bc $kb $budget (: (, $x $y) (, $a $b)))
-   ;; (trace! (👁 nupln_bc $kb $budget (: (, $x $y) (, $a $b)))
-   ;; The budget must be at least 3: 1 for $a, 1 for $b and 1 for the
+;;
+;; Note that the product does not consume any depth.  This is done so
+;; in order to view it as flattened and to avoid deeper queries buried
+;; in the left associativity to require a higher depth, thus keep
+;; elements among the product with a balanced depth budget.  The same
+;; cannot be done with the size budget otherwise, an unconstrained
+;; theorem would be allow grow a product of products arbitrarily
+;; large.
+(= (nupln_bc $kb (MkControl $size $depth) (: (, $x $y) (, $a $b)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (, $x $y) (, $a $b)))
+   ;; The size must be at least 3: 1 for $a, 1 for $b and 1 for the
    ;; introduction of `,`.
-   (if (<= 3 $budget)
+   (if (and (<= 3 $size) (<= 1 $depth))
        (let* (;; Recurse on premise 1 to prove $a
               ((MkSized $xs (: $x $a))
-               (nupln_bc $kb (- $budget 2) (: $x $a)))
+               (nupln_bc $kb (MkControl (- $size 2) $depth) (: $x $a)))
               ;; Recurse on premise 2 to prove $b
               ((MkSized $ys (: $y $b))
-               (nupln_bc $kb (- $budget (+ $xs 1)) (: $y $b))))
+               (nupln_bc $kb (MkControl (- $size (+ $xs 1)) $depth) (: $y $b))))
          ;; Build product
          (MkSized (+ 1 (+ $xs $ys)) (: (, $x $y) (, $a $b))))
        (empty)))
    ;; )
-
