@@ -132,64 +132,66 @@
 
 ;; Type check F
 !(test
-  (nupln_bc &kb 1 (: F $a))
+  (nupln_bc &kb (MkControl 1 1) (: F $a))
   (MkSized 1 (: F (-> UInt Bool))))
 
 ;; Type check G
 !(test
-  (nupln_bc &kb 1 (: G $a))
+  (nupln_bc &kb (MkControl 1 1) (: G $a))
   (MkSized 1 (: G (-> UInt Bool))))
 
 ;; Type check (∧ F G)
 !(test
-  (nupln_bc &kb 3 (: (∧ F G) $a))
+  (nupln_bc &kb (MkControl 3 2) (: (∧ F G) $a))
   (MkSized 3 (: (∧ F G) (-> UInt Bool))))
 
 ;; Type check (∨ F G)
 !(test
-  (nupln_bc &kb 3 (: (∨ F G) $a))
+  (nupln_bc &kb (MkControl 3 2) (: (∨ F G) $a))
   (MkSized 3 (: (∨ F G) (-> UInt Bool))))
 
 ;; Type check (⊙ 0)
 !(test
-  (nupln_bc &kb 2 (: (⊙ 0) $a))
+  (nupln_bc &kb (MkControl 2 2) (: (⊙ 0) $a))
   (MkSized 2 (: (⊙ 0) (-> UInt Bool))))
 
 ;; Type check (→ (⊙ 0) (∧ F G))
 !(test
-  (nupln_bc &kb 6 (: (→ (⊙ 0) (∧ F G)) $a))
-  (MkSized 6 (: (→ (⊙ 0) (∧ F G)) Statement)))
+  (nupln_bc &kb (MkControl 6 3) (: (→ (⊙ 0) (∧ F G)) $a))
+  (MkSized 6 (: (→ (⊙ 0) (∧ F G)) (CPred (-> UInt Bool)))))
 
 ;; Evaluate (∧ F G) over 0
 !(test
-  (nupln_bc &kb 9 (: $prf (≞ (→ (⊙ 0) (∧ F G)) $tv)))
-  (MkSized 9 (: (cet f0t g0t) (≞ (→ (⊙ 0) (∧ F G)) ⊤))))
+  (nupln_bc &kb (MkControl 9 4) (: $prf (≞ (→ (⊙ 0) (∧ F G)) $tv)))
+  (MkSized 9 (: (cet (→ (⊙ 0) (∧ F G)) f0t g0t) (≞ (→ (⊙ 0) (∧ F G)) ⊤))))
 
 ;; Evaluate (∧ F G) over 1
 !(test
-  (nupln_bc &kb 8 (: $prf (≞ (→ (⊙ 1) (∧ F G)) $tv)))
-  (MkSized 8 (: (cefl f1f) (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+  (nupln_bc &kb (MkControl 8 4) (: $prf (≞ (→ (⊙ 1) (∧ F G)) $tv)))
+  (MkSized 8 (: (cefl (→ (⊙ 1) (∧ F G)) f1f) (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
 
 ;; Evaluate (∨ F G) over 1, true from right since (F 1) is False but (G 1) is True
 !(test
-  (nupln_bc &kb 8 (: $prf (≞ (→ (⊙ 1) (∨ F G)) $tv)))
-  (MkSized 8 (: (detr g1t) (≞ (→ (⊙ 1) (∨ F G)) ⊤))))
+  (nupln_bc &kb (MkControl 8 4) (: $prf (≞ (→ (⊙ 1) (∨ F G)) $tv)))
+  (MkSized 8 (: (detr (→ (⊙ 1) (∨ F G)) g1t) (≞ (→ (⊙ 1) (∨ F G)) ⊤))))
 
 ;; Evaluate (∨ F G) over 2, true from left since (F 2) is True and (G 2) is False
 !(test
-  (nupln_bc &kb 8 (: $prf (≞ (→ (⊙ 2) (∨ F G)) $tv)))
-  (MkSized 8 (: (detl f2t) (≞ (→ (⊙ 2) (∨ F G)) ⊤))))
+  (nupln_bc &kb (MkControl 8 4) (: $prf (≞ (→ (⊙ 2) (∨ F G)) $tv)))
+  (MkSized 8 (: (detl (→ (⊙ 2) (∨ F G)) f2t) (≞ (→ (⊙ 2) (∨ F G)) ⊤))))
 
 ;; Evaluate (∨ F G) over 3, false since both (F 3) and (G 3) are False
 !(test
-  (nupln_bc &kb 9 (: $prf (≞ (→ (⊙ 3) (∨ F G)) $tv)))
-  (MkSized 9 (: (def f3f g3f) (≞ (→ (⊙ 3) (∨ F G)) ⊥))))
+  (nupln_bc &kb (MkControl 9 4) (: $prf (≞ (→ (⊙ 3) (∨ F G)) $tv)))
+  (MkSized 9 (: (def (→ (⊙ 3) (∨ F G)) f3f g3f) (≞ (→ (⊙ 3) (∨ F G)) ⊥))))
 
-;; Find proof of the evaluation of F over 3 values
+;; Find proof of the evaluation of F over 3 values.  Note that depth
+;; of 1 works because product cost nothing in terms of depth budget.
 !(test
-  (nupln_bc &kb 5 (: $prf (, (≞ (→ (⊙ 0) F) ⊤)
-                          (, (≞ (→ (⊙ 1) F) ⊥)
-                             (≞ (→ (⊙ 2) F) ⊤)))))
+  (nupln_bc &kb (MkControl 5 1)
+            (: $prf (, (≞ (→ (⊙ 0) F) ⊤)
+                    (, (≞ (→ (⊙ 1) F) ⊥)
+                       (≞ (→ (⊙ 2) F) ⊤)))))
   (MkSized 5 (: (, f0t (, f1f f2t))
                 (, (≞ (→ (⊙ 0) F) ⊤)
                 (, (≞ (→ (⊙ 1) F) ⊥)
@@ -197,18 +199,23 @@
 
 ;; Find proof of (∧ F G) evaluation over 2 values
 !(test
-  (nupln_bc &kb 18 (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-                              (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
-  (MkSized 18 (: (, (cet f0t g0t) (cefl f1f))
+  (nupln_bc &kb (MkControl 18 4)
+            (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                       (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+  (MkSized 18 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
+                    (cefl (→ (⊙ 1) (∧ F G)) f1f))
                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
                     (≞ (→ (⊙ 1) (∧ F G)) ⊥)))))
 
 ;; Find proof of (∧ F G) evaluation over 3 values
 !(test
-  (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-                           (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-                              (≞ (→ (⊙ 2) (∧ F G)) ⊥)))))
-  (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
+  (nupln_bc &kb (MkControl 27 4)
+            (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                    (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+                       (≞ (→ (⊙ 2) (∧ F G)) ⊥)))))
+  (MkSized 27 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
+                 (, (cefl (→ (⊙ 1) (∧ F G)) f1f)
+                    (cefr (→ (⊙ 2) (∧ F G)) g2f)))
                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
@@ -219,20 +226,28 @@
 ;; Values are chosen so that exactly one of detl, detr or def applies
 ;; at each input, giving a unique proof.
 !(test
-  (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 1) (∨ F G)) ⊤)
-                           (, (≞ (→ (⊙ 2) (∨ F G)) ⊤)
-                              (≞ (→ (⊙ 3) (∨ F G)) ⊥)))))
-  (MkSized 27 (: (, (detr g1t) (, (detl f2t) (def f3f g3f)))
+  (nupln_bc &kb (MkControl 27 4)
+            (: $prf (, (≞ (→ (⊙ 1) (∨ F G)) ⊤)
+                    (, (≞ (→ (⊙ 2) (∨ F G)) ⊤)
+                       (≞ (→ (⊙ 3) (∨ F G)) ⊥)))))
+  (MkSized 27 (: (, (detr (→ (⊙ 1) (∨ F G)) g1t)
+                 (, (detl (→ (⊙ 2) (∨ F G)) f2t)
+                    (def (→ (⊙ 3) (∨ F G)) f3f g3f)))
                  (, (≞ (→ (⊙ 1) (∨ F G)) ⊤)
                  (, (≞ (→ (⊙ 2) (∨ F G)) ⊤)
                     (≞ (→ (⊙ 3) (∨ F G)) ⊥))))))
 
 ;; Infer what predicates could evaluate to the partial truth table
 ;; corresponding to F.
+;;
+;; Warning: the order of the collapse changes easily, included if
+;; memoization is enabled or not.
 !(test
-  (collapse (nupln_bc &kb 18 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                                        (≞ (→ (⊙ 1) $pred) ⊥)))))
-  ((MkSized 18 (: (, (cet f0t g0t) (cefl f1f))
+  (collapse (nupln_bc &kb (MkControl 18 4)
+                      (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+                                 (≞ (→ (⊙ 1) $pred) ⊥)))))
+  ((MkSized 18 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
+                     (cefl (→ (⊙ 1) (∧ F G)) f1f))
                   (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
                      (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
    (MkSized 3 (: (, f0t f1f)
@@ -245,19 +260,54 @@
 ;; (F 1) = ⊥.  Budget: 1 for outer `,` + 7 for (nef f0t) + 7 for (net
 ;; f1f) = 15.
 !(test
-  (nupln_bc &kb 15 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊥)
-                              (≞ (→ (⊙ 1) $pred) ⊤))))
-  (MkSized 15 (: (, (nef f0t) (net f1f))
+  (nupln_bc &kb (MkControl 15 4)
+            (: $prf (, (≞ (→ (⊙ 0) $pred) ⊥)
+                       (≞ (→ (⊙ 1) $pred) ⊤))))
+  (MkSized 15 (: (, (nef (→ (⊙ 0) (¬ F)) f0t)
+                    (net (→ (⊙ 1) (¬ F)) f1f))
                  (, (≞ (→ (⊙ 0) (¬ F)) ⊥)
                     (≞ (→ (⊙ 1) (¬ F)) ⊤)))))
 
-;; Infer what predicates could evaluate to the truth table
+;; Infer what predicates could evaluate to the partial truth table
 ;; corresponding to (∧ F G)
 !(test
-  (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                           (, (≞ (→ (⊙ 1) $pred) ⊥)
-                              (≞ (→ (⊙ 2) $pred) ⊥)))))
-  (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
+  (nupln_bc &kb (MkControl 8 4) (: $prf (≞ (→ (⊙ 2) (∧ F G)) ⊥)))
+  (MkSized 8 (: (cefr (→ (⊙ 2) (∧ F G)) g2f) (≞ (→ (⊙ 2) (∧ F G)) ⊥))))
+
+;; Infer what predicates could evaluate to the partial truth table
+;; corresponding to (∧ F G)
+!(test
+  (nupln_bc &kb (MkControl 18 4)
+            (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                       (≞ (→ (⊙ 2) (∧ F G)) ⊥))))
+  (MkSized 18 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
+                    (cefr (→ (⊙ 2) (∧ F G)) g2f))
+                 (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                    (≞ (→ (⊙ 2) (∧ F G)) ⊥)))))
+
+;; Infer what predicates could evaluate to the partial truth table
+;; corresponding to (∧ F G)
+!(test
+  (nupln_bc &kb (MkControl 27 4)
+            (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+                    (, (≞ (→ (⊙ 1) $pred) ⊥)
+                       (≞ (→ (⊙ 2) $pred) ⊥)))))
+  (MkSized 27 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
+                 (, (cefl (→ (⊙ 1) (∧ F G)) f1f)
+                    (cefr (→ (⊙ 2) (∧ F G)) g2f)))
                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
+
+;; NEXT, add fourth data point.
+
+;; ;; Infer what predicates could evaluate to the full truth table
+;; ;; corresponding to (∧ F G)
+;; !(test
+;;   (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+;;                            (, (≞ (→ (⊙ 1) $pred) ⊥)
+;;                               (≞ (→ (⊙ 2) $pred) ⊥)))))
+;;   (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
+;;                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+;;                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+;;                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
