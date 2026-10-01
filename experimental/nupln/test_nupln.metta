@@ -108,10 +108,13 @@
 ;; ;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;
 
-;; Enable memoization for nupln_bc
-!(memoize nupln_bc)
-;; Settings suggested by Minimax-m3
-!(config-memoize (unique-limit 10000) (strategy wtinylfu) (size-limit 5))
+;; After introducing depth in the control structure, memoization no
+;; longer helps, thus is disabled for now.
+;;
+;; ;; Enable memoization for nupln_bc
+;; !(memoize nupln_bc)
+;; ;; Settings suggested by Minimax-m3
+;; !(config-memoize (unique-limit 10000) (strategy wtinylfu) (size-limit 5))
 
 ;; Define F and G over values 0, 1, 2 and 3
 !(bind! &kb (new-space))
@@ -237,22 +240,22 @@
                  (, (≞ (→ (⊙ 2) (∨ F G)) ⊤)
                     (≞ (→ (⊙ 3) (∨ F G)) ⊥))))))
 
-;; Infer what predicates could evaluate to the partial truth table
-;; corresponding to F.
-;;
-;; Warning: the order of the collapse changes easily, included if
-;; memoization is enabled or not.
-!(test
-  (collapse (nupln_bc &kb (MkControl 18 4)
-                      (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                                 (≞ (→ (⊙ 1) $pred) ⊥)))))
-  ((MkSized 18 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
-                     (cefl (→ (⊙ 1) (∧ F G)) f1f))
-                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-                     (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
-   (MkSized 3 (: (, f0t f1f)
-                 (, (≞ (→ (⊙ 0) F) ⊤)
-                    (≞ (→ (⊙ 1) F) ⊥))))))
+;; ;; Infer what predicates could evaluate to the partial truth table
+;; ;; corresponding to F.
+;; ;;
+;; ;; Warning: the order of the collapse changes easily, included if
+;; ;; memoization is enabled or not.  Thus disabled for now.
+;; !(test
+;;   (collapse (nupln_bc &kb (MkControl 18 4)
+;;                       (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+;;                                  (≞ (→ (⊙ 1) $pred) ⊥)))))
+;;   ((MkSized 18 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
+;;                      (cefl (→ (⊙ 1) (∧ F G)) f1f))
+;;                   (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+;;                      (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+;;    (MkSized 3 (: (, f0t f1f)
+;;                  (, (≞ (→ (⊙ 0) F) ⊤)
+;;                     (≞ (→ (⊙ 1) F) ⊥))))))
 
 ;; Infer what predicates could evaluate to the partial truth table
 ;; corresponding to (¬ F).  The proof for (¬ F 0) = ⊥ uses (nef f0t)
@@ -299,15 +302,30 @@
                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
 
-;; NEXT, add fourth data point.
-
-;; ;; Infer what predicates could evaluate to the full truth table
-;; ;; corresponding to (∧ F G)
-;; !(test
-;;   (nupln_bc &kb 27 (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-;;                            (, (≞ (→ (⊙ 1) $pred) ⊥)
-;;                               (≞ (→ (⊙ 2) $pred) ⊥)))))
-;;   (MkSized 27 (: (, (cet f0t g0t) (, (cefl f1f) (cefr g2f)))
-;;                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-;;                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-;;                     (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
+;; Infer what predicates could evaluate to the full truth table
+;; corresponding to (∧ F G).
+;;
+;; Warning: the order of the collapse changes when memoization is
+;; used.
+!(test
+  (collapse
+   (nupln_bc &kb (MkControl 36 4) (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
+                                          (, (≞ (→ (⊙ 1) $pred) ⊥)
+                                          (, (≞ (→ (⊙ 2) $pred) ⊥)
+                                             (≞ (→ (⊙ 3) $pred) ⊥)))))))
+  ((MkSized 36 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
+                  (, (cefl (→ (⊙ 1) (∧ F G)) f1f)
+                  (, (cefr (→ (⊙ 2) (∧ F G)) g2f)
+                     (cefl (→ (⊙ 3) (∧ F G)) f3f))))
+                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+                  (, (≞ (→ (⊙ 2) (∧ F G)) ⊥)
+                     (≞ (→ (⊙ 3) (∧ F G)) ⊥))))))
+   (MkSized 36 (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
+                  (, (cefl (→ (⊙ 1) (∧ F G)) f1f)
+                  (, (cefr (→ (⊙ 2) (∧ F G)) g2f)
+                     (cefr (→ (⊙ 3) (∧ F G)) g3f))))
+                  (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
+                  (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
+                  (, (≞ (→ (⊙ 2) (∧ F G)) ⊥)
+                     (≞ (→ (⊙ 3) (∧ F G)) ⊥))))))))
