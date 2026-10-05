@@ -159,10 +159,15 @@
 ;; evaluation matches the parity truth table.  Reasonable choices for
 ;; size and depth budgets are:
 ;;
-;; * N=1: (MkControl 15 4) with solution: (¬ F1)
+;; * N=1: (MkControl 15 4) with solution:
+;;   (¬ F1)
 ;; * N=2: (MkControl 135 6) with solutions:
 ;;   (∨ (∧ F1 F2) (∧ (¬ F1) (¬ F2)))
 ;;   (∧ (∨ F1 (¬ F2)) (∨ (¬ F1) F2))
-;; * N=3: (MkControl ? ?) with solutions:
+;; * N=3: (MkControl 851 9) with solution:
+;;   (∧ (∨ F1 (∨ (¬ F2) F3))
+;;      (∨ (∧ F1 (∧ (¬ F2) F3))
+;;         (∨ (∧ (¬ F1) F2)
+;;            (∧ (¬ F3) (∨ (¬ F1) F2)))))
 !(once
-  (nupln_bc &kb (MkControl 500 8) (buildParityQuery (paritySize))))
+  (nupln_bc &kb (MkControl 851 9) (buildParityQuery (paritySize))))
