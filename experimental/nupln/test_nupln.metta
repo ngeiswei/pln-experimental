@@ -76,6 +76,29 @@
   (isShallowNormal (∧ F (∧ (¬ F) G)))
   False)
 
+;; Test isShallowNormal for disjunction, ∨
+!(test
+  (isShallowNormal (∨ F G))
+  True)
+!(test
+  (isShallowNormal (∨ F F))
+  False)
+!(test
+  (isShallowNormal (∨ F (∨ G H)))
+  True)
+!(test
+  (isShallowNormal (∨ H (∨ G F)))
+  False)
+!(test
+  (isShallowNormal (∨ F (∨ H F)))
+  True)
+!(test
+  (isShallowNormal (∨ F (¬ F)))
+  False)
+!(test
+  (isShallowNormal (∨ F (∨ (¬ F) G)))
+  False)
+
 ;; Test isNormal
 !(test
   (isNormal F)

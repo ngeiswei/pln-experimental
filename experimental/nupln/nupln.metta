@@ -294,13 +294,18 @@
               ;; Like in MOSES, ¬ must be pushed to the leaves
               ((¬ $g) (not (isExpression $g)))
               ;; Binary application
-              ;; For now only ∧ is supported.
               ((∧ $g $h)
                ;; Must be in left associative form, with sorted and
                ;; non contradicting arguments.
                (and (not (isConjunction $g))
                     (and (isConjSorted (∧ $g $h))
                          (isConjNonContradict (∧ $g $h)))))
+              ((∨ $g $h)
+               ;; Must be in left associative form, with sorted and
+               ;; non contradicting arguments.
+               (and (not (isDisjunction $g))
+                    (and (isDisjSorted (∨ $g $h))
+                         (isDisjNonContradict (∨ $g $h)))))
               ($else True))))
        True))
 
