@@ -3,15 +3,14 @@
 ;; Run with:
 ;;   ~/Work/TrueAGI/PeTTa/run.sh test_parity_bit.metta
 ;;
-;; The goal of this test is to have nupln_bc *infer* an expression
-;; for the parity bit of the N input features F1, ..., FN.  Parity
-;; here means: True when an odd number of Fi's are True, False when
-;; an even number are.  The features are encoded in the natural
-;; way, Fi(x) = (bit (i-1) of x), over the domain x ∈ {0, ..., 2^N
-;; - 1}.  This file populates the knowledge base and builds the
-;; parity query automatically from the single hyper-parameter
-;; `(paritySize)`, so that changing N only requires changing that
-;; one place.
+;; The goal of this test is to have nupln_bc *infer* an expression for
+;; the parity bit of the N input features F1, ..., FN.  Parity here
+;; means: True when an even number of Fi's are True, False when an
+;; even number are.  The features are encoded in the natural way,
+;; Fi(x) = (bit (i-1) of x), over the domain x ∈ {0, ..., 2^N - 1}.
+;; This file populates the knowledge base and builds the parity query
+;; automatically from the single hyper-parameter `(paritySize)`, so
+;; that changing N only requires changing that one place.
 ;;
 ;; This file does NOT assert a specific expected proof: parity is
 ;; non-trivially ambiguous (XOR has multiple equivalent
@@ -29,7 +28,7 @@
 
 ;; Number of input features (i.e. bits).  Features are named F1, F2,
 ;; ..., FN, and the domain is {0, 1, ..., 2^N - 1}.
-(= (paritySize) 2)
+(= (paritySize) 3)
 
 ;;;;;;;;;;;;;;;
 ;; Helpers ;;
@@ -41,17 +40,15 @@
        (#mod $x 2)
        (getBit (#div $x 2) (#- $i 1))))
 
-;; parityBit x n: parity of bits 0..n-1 of x.  Returns ⊤ if the
-;; count of set bits is odd, ⊥ otherwise.  Note that `if` in MeTTa
-;; does not treat the literal ⊤ as truthy, only `True`/`true`; so
-;; we use `(== $rest ⊤)` (which yields `true`) as the condition.
+;; parityBit x n: parity of bits 0..n-1 of x.  Returns ⊤ if the count
+;; of set bits is even, ⊥ otherwise.
 (= (parityBit $x $n)
    (if (== $n 0)
-       ⊥
+       ⊤
        (let* (($bit (== (getBit $x (#- $n 1)) 1))
               ($rest (parityBit $x (#- $n 1))))
          (if $bit
-             (if (== $rest ⊤) ⊥ ⊤)
+             (if (== $rest ⊥) ⊤ ⊥)
              $rest))))
 
 ;; predName i: "F1", "F2", ..., the name of the i-th input feature.
@@ -131,23 +128,28 @@
           (buildParityQuery-rec (#+ $x 1) $n $pred))))
 
 ;; Like above but without needed to pass $pred.
-(= (buildParityQuery $x $n) (buildParityQuery-rec $x $n $pred))
+(= (buildParityQuery $n) (: $prf (buildParityQuery-rec 0 $n $pred)))
 
 ;;;;;;;;;;;;;;;
 ;; Run test ;;
 ;;;;;;;;;;;;;;;
 
+;; Populate kb
 !(bind! &kb (new-space))
 !(populateKb &kb (paritySize))
 
-;; !(get-atoms &kb)
-;; !(buildParityQuery 0 (paritySize))
+;; Trace kb and query
+!(trace! (kb (get-atoms &kb)) (empty))
+!(trace! (query (buildParityQuery (paritySize))) ())
 
 ;; Run the chainer to find every $pred over F1, ..., FN whose
 ;; evaluation matches the parity truth table.  Reasonable choices for
 ;; size and depth budgets are:
 ;;
-;; * N=1: (MkControl 3 1) with solution F1
-;; * N=2: (MkControl ? ?) with solution ?
-!(once (nupln_bc &kb (MkControl 100 6)
-                 (: $prf (buildParityQuery 0 (paritySize)))))
+;; * N=1: (MkControl 15 4) with solution: (¬ F1)
+;; * N=2: (MkControl 135 6) with solutions:
+;;   (∨ (∧ F1 F2) (∧ (¬ F1) (¬ F2)))
+;;   (∧ (∨ F1 (¬ F2)) (∨ (¬ F1) F2))
+;; * N=3: (MkControl ? ?) with solutions:
+!(once
+  (nupln_bc &kb (MkControl 500 8) (buildParityQuery (paritySize))))
