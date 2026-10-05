@@ -43,6 +43,9 @@
 !(test
   (n< (¬ F) (∧ F G))
   True)
+!(test
+  (n< (∧ F1 (∧ (¬ F2) F3)) (∧ (¬ F3) (∨ (¬ F1) F2)))
+  True)
 
 ;; Test isShallowNormal
 !(test
@@ -146,12 +149,53 @@
 !(test
   (isNormal (∨ F (∨ (¬ F) G)))
   False)
+!(test
+  (isNormal (∧ (∨ F1 (¬ F2)) (∨ (¬ F1) F2)))
+  True)
+!(test
+  (isNormal (∧ (¬ F1) F2))
+  True)
+!(test
+  (isNormal (∧ F1 (∧ (¬ F2) F3)))
+  True)
+!(test
+  (isNormal (∨ (∧ F1 (∧ (¬ F2) F3))
+               (∧ (¬ F1) F2)))
+  True)
+!(test
+  (isNormal (∧ (¬ F3) (∨ (¬ F1) F2)))
+  True)
+!(test
+  (isNormal (∨ (∧ F1 (∧ (¬ F2) F3))
+               (∨ (∧ (¬ F1) F2)
+                  (∧ (¬ F3) (∨ (¬ F1) F2)))))
+  True)
+!(test
+  (isNormal (∨ F1 (∨ (¬ F2) F3)))
+  True)
+!(test
+  (isNormal (∧ (∨ F1 (∨ (¬ F2) F3))
+               (∨ (∧ F1 (∧ (¬ F2) F3))
+                  (∨ (∧ (¬ F1) F2)
+                     (∧ (¬ F3) (∨ (¬ F1) F2))))))
+  True)
 
-;;;;;;;;;;;;;;;;
-;; ;;;;;;;;;; ;;
-;; ;; Test ;; ;;
-;; ;;;;;;;;;; ;;
-;;;;;;;;;;;;;;;;
+;; Test toNormal
+!(test
+  (toNormal (∧ (∨ (∧ (∨ (¬ F1) F2) (¬ F3))
+                  (∨ (∧ (¬ F1) F2)
+                     (∧ F1 (∧ (¬ F2) F3))))
+               (∨ F1 (∨ (¬ F2) F3))))
+  (∧ (∨ F1 (∨ (¬ F2) F3))
+     (∨ (∧ F1 (∧ (¬ F2) F3))
+        (∨ (∧ (¬ F1) F2)
+           (∧ (¬ F3) (∨ (¬ F1) F2))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
+;; ;; Test nuPLN backward chainer ;; ;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; After introducing depth in the control structure, memoization no
 ;; longer helps, thus is disabled for now.
