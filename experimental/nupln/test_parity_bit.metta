@@ -22,17 +22,23 @@
 ;; Load the code under test
 !(import! &self ./nupln.metta)
 
-;;;;;;;;;;;;;;;;;;;;
-;; Hyper-parameter ;;
-;;;;;;;;;;;;;;;;;;;;
+;; Import memoization library
+!(import! &self (library lib_memo))
+
+;;;;;;;;;;;;;;;;;;;;;;
+;; Hyper-parameters ;;
+;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Number of input features (i.e. bits).  Features are named F1, F2,
 ;; ..., FN, and the domain is {0, 1, ..., 2^N - 1}.
 (= (paritySize) 3)
 
-;;;;;;;;;;;;;;;
+;; Enable memoization
+(= (enableMemo) True)
+
+;;;;;;;;;;;;;
 ;; Helpers ;;
-;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;
 
 ;; getBit x i: i-th bit of integer x (returns 0 or 1, 0-indexed).
 (= (getBit $x $i)
@@ -65,9 +71,9 @@
 (= (bitValueOfPred $i $x)
    (if (== (getBit $x (#- $i 1)) 1) ⊤ ⊥))
 
-;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
 ;; KB construction ;;
-;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;
 
 ;; Add (: 0 UInt), (: 1 UInt), ..., (: (2^N - 1) UInt).
 (= (addUIntAtoms $kb $n)
@@ -112,9 +118,9 @@
           (addPredTypes $kb $n)
           (addAllTruthAtoms $kb $n $n)))
 
-;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;
 ;; Query building ;;
-;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;
 
 ;; Build the left-leaning nested `,` of parity evaluations.
 ;; (buildParityQuery-rec $x $n $pred) =
@@ -130,9 +136,16 @@
 ;; Like above but without needed to pass $pred.
 (= (buildParityQuery $n) (: $prf (buildParityQuery-rec 0 $n $pred)))
 
-;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;
 ;; Run test ;;
-;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;
+
+;; Enable memoization for nupln_bc
+(if (enableMemo)
+    (progn
+     (memoize nupln_bc)
+     (config-memoize (unique-limit 1000000) (strategy wtinylfu) (size-limit 5)))
+    (empty))
 
 ;; Populate kb
 !(bind! &kb (new-space))
