@@ -324,11 +324,9 @@
                   (and (isNormal $hd) (isNormal $tl)))))
        True))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ;;;;;;;;;;;;;;;;;;;;;;;;; ;;
-;; ;; Normal Form Builder ;; ;;
-;; ;;;;;;;;;;;;;;;;;;;;;;;;; ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Normal Form Builder ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Reduce a term to an equivalent term in normal form.  The strategy
 ;; is to recursively normalize every subterm, then for binary ∧ and ∨
@@ -360,11 +358,11 @@
           ;; (already-normalized) arguments, sort and rebuild.
           ((∧ $g $h)
            (buildOp ∧ (sortByN< (flattenOp ∧ (toNormal $g)
-                                            (flattenOp ∧ (toNormal $h) ())))))
+                                           (flattenOp ∧ (toNormal $h) ())))))
           ;; Disjunction: same as above, with ∨.
           ((∨ $g $h)
            (buildOp ∨ (sortByN< (flattenOp ∨ (toNormal $g)
-                                            (flattenOp ∨ (toNormal $h) ())))))
+                                           (flattenOp ∨ (toNormal $h) ())))))
           ;; Other expressions (e.g. function applications): leave
           ;; as is, they are not part of the boolean fragment.
           ($else $x)))
