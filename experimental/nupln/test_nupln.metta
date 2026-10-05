@@ -10,6 +10,9 @@
 ;; Load the code under test
 !(import! &self ./nupln.metta)
 
+;; Import memoization library
+!(import! &self (library lib_memo))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;;;;;;;; ;;
 ;; ;; Helper Unit Tests ;; ;;

@@ -7,9 +7,6 @@
 ;; Import custom import library
 !(import! &self (library lib_import.metta))
 
-;; Import memoization library
-!(import! &self (library lib_memo))
-
 ;; Import custom code implemented in Prolog
 !(import_prolog_functions_from_file "./lib_nupln.pl"
                                     (nupln_uniform
