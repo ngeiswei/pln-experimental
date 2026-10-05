@@ -324,6 +324,128 @@
                   (and (isNormal $hd) (isNormal $tl)))))
        True))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;; ;;
+;; ;; Normal Form Builder ;; ;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;; ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Reduce a term to an equivalent term in normal form.  The strategy
+;; is to recursively normalize every subterm, then for binary ∧ and ∨
+;; collect the operands (flattening left-associative chains), sort
+;; them using the normal order (which agrees with Prolog's @< on the
+;; resulting expressions), and finally rebuild a left-associative
+;; binary tree.
+;;
+;; Note that this is a syntactic reduction: it does not attempt to
+;; simplify tautologies (∨ F (¬ F)) or contradictions (∧ F (¬ F)) nor
+;; to absorb redundant literals.  The result is an equivalent term
+;; that satisfies isNormal.
+;;
+;; Note also that (¬ g) is normalized by normalizing g, which
+;; preserves the property that ¬ only wraps literals when the input
+;; was already of that shape.  Inputs that violate that property
+;; (like (¬ (∧ F G))) are left as-is, since pushing negation in is a
+;; separate transformation.
+(= (toNormal $x)
+   (if (isExpression $x)
+       (case $x
+         (;; Nullary application or empty expression: already normal.
+          (($f) $x)
+          ;; Negation.  Recursively normalize the argument; the
+          ;; result is unchanged modulo the inner term being
+          ;; normalized.
+          ((¬ $g) (¬ (toNormal $g)))
+          ;; Conjunction: flatten the ∧ chain across the two
+          ;; (already-normalized) arguments, sort and rebuild.
+          ((∧ $g $h)
+           (buildOp ∧ (sortByN< (flattenOp ∧ (toNormal $g)
+                                            (flattenOp ∧ (toNormal $h) ())))))
+          ;; Disjunction: same as above, with ∨.
+          ((∨ $g $h)
+           (buildOp ∨ (sortByN< (flattenOp ∨ (toNormal $g)
+                                            (flattenOp ∨ (toNormal $h) ())))))
+          ;; Other expressions (e.g. function applications): leave
+          ;; as is, they are not part of the boolean fragment.
+          ($else $x)))
+       $x))
+
+;; Flatten an operator chain.  If the term is a binary `(op a b)`
+;; expression whose head matches the operator being flattened,
+;; recursively flatten `a` and `b` and concatenate them in front of
+;; the accumulator.  Otherwise, prepend the term to the accumulator.
+;;
+;; This is written as a single guarded clause rather than two
+;; pattern-matching clauses because two clauses — one matching
+;; `($op $a $b)` and one matching `$x` — would both match the same
+;; input (since `$x` matches any term), producing two solutions and
+;; making `flattenOp` non-deterministic.  The guard makes the
+;; decision locally, leaving only one clause for the function and
+;; avoiding spurious choice points.
+(= (flattenOp $op $x $acc)
+   (if (and (isExpression $x) (== (car-atom $x) $op))
+       (flattenOp $op (car-atom (cdr-atom $x))
+                  (flattenOp $op (car-atom (cdr-atom (cdr-atom $x))) $acc))
+       (cons-atom $x $acc)))
+
+;; Rebuild a left-associative binary tree from a non-empty list of
+;; operands.  The result is a single operand when the list has one
+;; element, or (op hd (buildOp op tl)) otherwise.
+;;
+;; The base case tests `(cdr-atom $xs) == ()` rather than `$xs ==
+;; ()` because the latter would mistake a single-element list for the
+;; empty list and yield `(op hd ())` instead of `hd`.  Also, using a
+;; single guarded clause (rather than two pattern-matching clauses)
+;; avoids a subtle issue with MeTTa's metta->prolog translation where
+;; a recursive clause headed `(buildOp $xs ...)` also matches the
+;; empty list, causing findall to backtrack into infinite recursion.
+(= (buildOp $op $xs)
+   (if (== (cdr-atom $xs) ())
+       (car-atom $xs)
+       ($op (car-atom $xs)
+            (buildOp $op (cdr-atom $xs)))))
+
+;; Sort a list of operands using the normal order `n<`.  Because
+;; `n<` agrees with `@<` everywhere except when one operand is a
+;; negation, the trick is to wrap each element as a (sortKey . orig)
+;; pair where sortKey is the polarized literal for negations and the
+;; element itself otherwise.  Sorting pairs with `sort-atom` (which
+;; uses `@<` lexicographically on the pair) yields the correct n<
+;; order.  The original elements are then recovered by stripping the
+;; sortKey wrapper.
+(= (sortByN< $list)
+   (pairSeconds (sort-atom (map makeSortPair $list))))
+
+;; Wrap an element for n<-based sorting.  Each element is paired
+;; with its `polarize` value as the sortKey.  `polarize` already
+;; implements the ordering trick used by `n<`: it tags a positive
+;; element with `(, x 0)` and a negation `(¬ x)` with `(, x 1)`,
+;; so the tagged forms sort next to each other in the right order.
+;; Sorting pairs with `sort-atom` (which uses `@<` lexicographically)
+;; yields the same order as `n<` on the originals.  We then strip
+;; the tagged sortKey, leaving the original elements in n<-sorted
+;; order.
+(= (makeSortPair $x)
+   (cons-atom (polarize $x) (cons-atom $x ())))
+
+;; Project the second element out of every pair in a list.  See the
+;; note on `buildOp` above for why this uses `if` instead of a base
+;; clause.
+(= (pairSeconds $xs)
+   (if (== $xs ())
+       ()
+       (cons-atom (car-atom (cdr-atom (car-atom $xs)))
+                  (pairSeconds (cdr-atom $xs)))))
+
+;; Apply a unary function to every element of a list.  Used here to
+;; build the sortKey/original pairs in `sortByN<`.  See the note on
+;; `buildOp` above for why this uses `if` instead of a base clause.
+(= (map $f $xs)
+   (if (== $xs ())
+       ()
+       (cons-atom ($f (car-atom $xs))
+                  (map $f (cdr-atom $xs)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;;;;;;;; ;;
 ;; ;; Backward Chaining ;; ;;
