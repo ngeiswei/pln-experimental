@@ -468,7 +468,7 @@
 (= (nupln_bc $kb (MkControl $size $depth) (: $x $a))
    ;; (trace! (👁 nupln_bc_base $kb (MkControl $size $depth) (: $x $a))
    (if (and (<= 1 $size) (<= 1 $depth))
-       (match $kb (: $x $a) (MkSized 1 (: $x $a)))
+       (match $kb (: $x $a) (, (MkControl (- $size 1) (- $depth 1)) (: $x $a)))
        (empty)))
    ;; )
 
@@ -502,7 +502,7 @@
    ;; for the type checking of $g, and 1 for the introduction of ∧.
    (if (and (<= 3 $size) (<= 2 $depth))
        ;; Recurse on premise 1, check that $f is of type (-> $a Bool)
-       (let (MkSized $fs (: $f (-> $a Bool)))
+       (let (, (MkControl $fsize $fdepth) (: $f (-> $a Bool)))
          (nupln_bc $kb (MkControl (- $size 2) (- $depth 1))
                    (: $f (-> $a Bool)))
          ;; Check that $f is not a conjunction so that (∧ $f $g) may
@@ -510,13 +510,14 @@
          (if (isConjunction $f)
              (empty)
              ;; Recurse on premise 2, check that $g is or type (-> $a Bool)
-             (let (MkSized $gs (: $g (-> $a Bool)))
-               (nupln_bc $kb (MkControl (- $size (+ $fs 1)) (- $depth 1))
+             (let (, (MkControl $gsize $gdepth) (: $g (-> $a Bool)))
+               (nupln_bc $kb (MkControl (+ $fsize 1) (- $depth 1))
                          (: $g (-> $a Bool)))
                ;; Check that (∧ $f $g) is sorted according to the
                ;; normal order with non contradicting arguments.
                (if (and (isConjSorted (∧ $f $g)) (isConjNonContradict (∧ $f $g)))
-                   (MkSized (+ 1 (+ $fs $gs)) (: (∧ $f $g) (-> $a Bool)))
+                   (, (MkControl $gsize (min $fdepth $gdepth))
+                      (: (∧ $f $g) (-> $a Bool)))
                    (empty)))))
        (empty)))
    ;; )
