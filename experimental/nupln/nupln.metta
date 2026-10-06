@@ -599,6 +599,7 @@
          (if (isExpression $f)
              (empty)
              (, (MkControl $fsize $fdepth) (: (¬ $f) (-> $a Bool)))))))
+   ;; )
 
 ;; Type check singleton construction, ⊙.  If $x is of type $a, then
 ;; (⊙ $x) is of type $a -> Bool.
