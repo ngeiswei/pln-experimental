@@ -31,7 +31,7 @@
 
 ;; Number of input features (i.e. bits).  Features are named F1, F2,
 ;; ..., FN, and the domain is {0, 1, ..., 2^N - 1}.
-(= (paritySize) 3)
+(= (paritySize) 2)
 
 ;; Enable memoization
 (= (enableMemo) True)
@@ -170,4 +170,4 @@
 ;;         (∨ (∧ (¬ F1) F2)
 ;;            (∧ (¬ F3) (∨ (¬ F1) F2)))))
 !(once
-  (nupln_bc &kb (MkControl 851 9) (buildParityQuery (paritySize))))
+  (nupln_bc &kb (MkControl 135 6) (buildParityQuery (paritySize))))
