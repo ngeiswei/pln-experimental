@@ -19,6 +19,20 @@
 ;; ;;;;;;;;;;;;;;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; Test countArgsRA
+!(test
+  (countArgsRA , a)
+  1)
+!(test
+  (countArgsRA , (∧ a b))
+  1)
+!(test
+  (countArgsRA , (, a b))
+  2)
+!(test
+  (countArgsRA , (, a (, b c)))
+  3)
+
 ;; Test isConjunction
 !(test
   (isConjunction (∧ F G))

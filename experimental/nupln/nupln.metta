@@ -147,6 +147,21 @@
            (+ 1 (getArity (cdr-atom $x))))
        0))
 
+;;;;;;;;;;;;;;;;;;;;;
+;; Count Arguments ;;
+;;;;;;;;;;;;;;;;;;;;;
+
+;; Count the number of arguments of a binary operator in right
+;; associative form.  For instance (∧ F (∧ G H)) has 3 arguments.
+(= (countArgsRA $op $x)
+   (if (isExpression $x)
+       (case $x
+         ((($f $x1 $x2) (if (== $op $f)
+                            (+ 1 (countArgsRA $op $x2))
+                            1))
+          ($else 1)))
+       1))
+
 ;;;;;;;;;;;;;;;;;;;
 ;; Get Arguments ;;
 ;;;;;;;;;;;;;;;;;;;
@@ -456,10 +471,11 @@
 
 ;; Define control type and constructors for inference control
 ;;
-;; nupln_bc returns, alongside the proof, the control structure with
-;; the *remaining* budgets after the proof:
+;; nupln_bc takes a control structure in argument for instance
+;; control.  It also returns, alongside the query result, the control
+;; structure with for now the *remaining* budgets after the proof:
 ;;
-;; (, (MkControl $size $depth) $proof)
+;; (, (MkControl $size $depth) $result)
 ;;
 ;; A proof consumes one unit of size per symbol, and one unit of depth
 ;; per inference step, except products (`,`) which consume no depth so
@@ -473,7 +489,6 @@
 ;; nuPLN Backward Chainer ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; Base case
 ;; Base case
 (= (nupln_bc $kb (MkControl $size $depth) (: $x $a))
    ;; (trace! (👁 nupln_bc_base $kb (MkControl $size $depth) (: $x $a))
@@ -1000,12 +1015,24 @@
    ;; returned depth is the minimum of the depths returned by the
    ;; premises.
    (if (and (<= 3 $size) (<= 1 $depth))
-       (let* (;; Recurse on premise 1 to prove $a
+       (let* (;; Count the number of components
+              ($n_cpn (countArgsRA , (, $a $b)))
+              ;; Get number of commas
+              ($n_com (- $n_cpn 1))
+              ;; Get total budget for all components
+              ($tcb (- $size $n_com))
+              ;; Calculate the size budget to allocate to the first
+              ;; component assuming fair distribution across components
+              ($fsts (+ (#div $tcb $n_cpn) (#mod $tcb $n_cpn)))
+              ;; Recurse on premise 1 to prove $a
               ((, (MkControl $xsize $xdepth) (: $x $a))
-               (nupln_bc $kb (MkControl (- $size 1) $depth) (: $x $a)))
+               (nupln_bc $kb (MkControl $fsts $depth) (: $x $a)))
+              ;; Calculate the size budget to allocate to the
+              ;; remaining components
+              ($rems (- $size (+ 1 (- $fsts $xsize))))
               ;; Recurse on premise 2 to prove $b
               ((, (MkControl $ysize $ydepth) (: $y $b))
-               (nupln_bc $kb (MkControl $xsize $depth) (: $y $b))))
+               (nupln_bc $kb (MkControl $rems $depth) (: $y $b))))
          ;; Build product
          (, (MkControl $ysize (min $xdepth $ydepth))
             (: (, $x $y) (, $a $b))))
