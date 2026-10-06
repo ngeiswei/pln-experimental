@@ -141,11 +141,11 @@
 ;;;;;;;;;;;;;;
 
 ;; Enable memoization for nupln_bc
-(if (enableMemo)
-    (progn
-     (memoize nupln_bc)
-     (config-memoize (unique-limit 1000000) (strategy wtinylfu) (size-limit 5)))
-    (empty))
+!(if (enableMemo)
+     (progn
+      (memoize nupln_bc)
+      (config-memoize (unique-limit 1000000) (strategy wtinylfu) (size-limit 64)))
+     (empty))
 
 ;; Populate kb
 !(bind! &kb (new-space))
