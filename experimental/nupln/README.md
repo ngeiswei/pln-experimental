@@ -80,3 +80,15 @@ chainer unchanged.  In this case the code simplifies to:
               (empty)))
     (empty)))
 ```
+
+## Tags
+
+nuPLN versions organized in git tags.
+
+- nupln-v0.1:
+  - Specialized backward chainer for nuPLN.
+  - Only boolean truth values.
+  - Hardcoded reduction gates so that only candidates in normal form
+    can be synthesized.
+  - No inference control beside proof size and depth budgets.
+  - Tests on even parity (borrowed from MOSES).
