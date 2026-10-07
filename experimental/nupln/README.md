@@ -5,7 +5,9 @@ PoC of νPLN.
 ## Probabilistic Programming Language
 
 νPLN starts with the definition of a probabilistic programming
-language.
+language.  For now we start with a language with no variable like
+[Predicate Functor Logic)(https://en.wikipedia.org/wiki/Predicate_functor_logic)
+enriched with random sampling functions.
 
 ## Inference Control
 
