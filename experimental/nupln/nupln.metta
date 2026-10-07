@@ -277,6 +277,52 @@
        (!= (¬ $f) (getFstArg $g))
        (!= (¬ $f) $g)))
 
+;; Output True iff $lit is one of the top level operands of $expr.
+;; $expr must be a binary conjunction or disjunction expression.
+(= (containsOperand $expr $lit)
+   (if (or (isConjunction $expr) (isDisjunction $expr))
+       (or (== (getFstArg $expr) $lit)
+           (== (getSndArg $expr) $lit))
+       False))
+
+;; Output True iff a literal $lit is one of the operands of a
+;; disjunction $disj.  Used to detect absorption in an outer
+;; conjunction.
+(= (isAbsorbedByDisj $disj $lit)
+   (if (isDisjunction $disj)
+       (containsOperand $disj $lit)
+       False))
+
+;; Output True iff a literal $lit is one of the operands of a
+;; conjunction $conj.  Used to detect absorption in an outer
+;; disjunction.
+(= (isAbsorbedByConj $conj $lit)
+   (if (isConjunction $conj)
+       (containsOperand $conj $lit)
+       False))
+
+;; Output True iff no operand absorbs the other via disjunction
+;; absorption.  Used by normal form checks on conjunctions: in the
+;; context of an outer ∧, neither $f nor $g may be absorbed by a
+;; disjunction formed by the other (e.g. (∧ F (∨ F G)) would reduce
+;; to F, so it's not in normal form).
+(= (noDisjAbsorption $f $g)
+   (and (or (not (isLiteral $f))
+            (not (isAbsorbedByDisj $g $f)))
+        (or (not (isLiteral $g))
+            (not (isAbsorbedByDisj $f $g)))))
+
+;; Output True iff no operand absorbs the other via conjunction
+;; absorption.  Used by normal form checks on disjunctions: in the
+;; context of an outer ∨, neither $f nor $g may be absorbed by a
+;; conjunction formed by the other (e.g. (∨ F (∧ F G)) would reduce
+;; to F, so it's not in normal form).
+(= (noConjAbsorption $f $g)
+   (and (or (not (isLiteral $f))
+            (not (isAbsorbedByConj $g $f)))
+        (or (not (isLiteral $g))
+            (not (isAbsorbedByConj $f $g)))))
+
 ;; Check if the surface of given term is already in normal form.  The
 ;; idea is that since this would be called by the backward chainer to
 ;; construct the term, then by structural induction each elements of
@@ -303,16 +349,18 @@
               ;; Binary application
               ((∧ $g $h)
                ;; Must be in left associative form, with sorted and
-               ;; non contradicting arguments.
+               ;; non contradicting arguments, and no absorption.
                (and (not (isConjunction $g))
                     (and (isConjSorted (∧ $g $h))
-                         (isConjNonContradict (∧ $g $h)))))
+                         (and (isConjNonContradict (∧ $g $h))
+                              (noDisjAbsorption $g $h)))))
               ((∨ $g $h)
                ;; Must be in left associative form, with sorted and
-               ;; non contradicting arguments.
+               ;; non contradicting arguments, and no absorption.
                (and (not (isDisjunction $g))
                     (and (isDisjSorted (∨ $g $h))
-                         (isDisjNonContradict (∨ $g $h)))))
+                         (and (isDisjNonContradict (∨ $g $h))
+                              (noConjAbsorption $g $h)))))
               ($else True))))
        True))
 
@@ -339,37 +387,44 @@
 ;; is to recursively normalize every subterm, then for binary ∧ and ∨
 ;; collect the operands (flattening left-associative chains), sort
 ;; them using the normal order (which agrees with Prolog's @< on the
-;; resulting expressions), and finally rebuild a left-associative
-;; binary tree.
+;; resulting expressions), compact the sorted list by removing
+;; duplicate operands and operands that are absorbed by another
+;; operand (e.g. F absorbs (∨ F G) in a conjunction), and finally
+;; rebuild a left-associative binary tree.
 ;;
 ;; Note that this is a syntactic reduction: it does not attempt to
-;; simplify tautologies (∨ F (¬ F)) or contradictions (∧ F (¬ F)) nor
-;; to absorb redundant literals.  The result is an equivalent term
-;; that satisfies isNormal.
+;; simplify tautologies (∨ F (¬ F)) or contradictions (∧ F (¬ F)).
+;; The result is an equivalent term that satisfies isNormal.
 ;;
-;; Note also that (¬ g) is normalized by normalizing g, which
-;; preserves the property that ¬ only wraps literals when the input
-;; was already of that shape.  Inputs that violate that property
-;; (like (¬ (∧ F G))) are left as-is, since pushing negation in is a
-;; separate transformation.
+;; Note also that (¬ g) is normalized by normalizing g.  If g reduces
+;; to a negation, the two ¬ cancel out (double negation elimination).
+;; Inputs that wrap a non literal in ¬ (like (¬ (∧ F G))) are left as
+;; is, since pushing negation in is a separate transformation.
 (= (toNormal $x)
    (if (is-expr $x)
        (case $x
          (;; Nullary application or empty expression: already normal.
           (($f) $x)
-          ;; Negation.  Recursively normalize the argument; the
-          ;; result is unchanged modulo the inner term being
-          ;; normalized.
-          ((¬ $g) (¬ (toNormal $g)))
+          ;; Negation.  Recursively normalize the argument; if the
+          ;; argument reduces to another negation, drop the outer ¬
+          ;; to eliminate double negation.  Otherwise keep the ¬.
+          ((¬ $g)
+           (let $inner (toNormal $g)
+             (if (isNegation $inner)
+                 (getFstArg $inner)
+                 (¬ $inner))))
           ;; Conjunction: flatten the ∧ chain across the two
-          ;; (already-normalized) arguments, sort and rebuild.
+          ;; (already-normalized) arguments, sort, compact (remove
+          ;; duplicates and absorbed operands), and rebuild.
           ((∧ $g $h)
-           (buildOp ∧ (sortByN< (flattenOp ∧ (toNormal $g)
-                                           (flattenOp ∧ (toNormal $h) ())))))
+           (buildOp ∧ (compactList ∧
+                                   (sortByN< (flattenOp ∧ (toNormal $g)
+                                                        (flattenOp ∧ (toNormal $h) ()))))))
           ;; Disjunction: same as above, with ∨.
           ((∨ $g $h)
-           (buildOp ∨ (sortByN< (flattenOp ∨ (toNormal $g)
-                                           (flattenOp ∨ (toNormal $h) ())))))
+           (buildOp ∨ (compactList ∨
+                                   (sortByN< (flattenOp ∨ (toNormal $g)
+                                                        (flattenOp ∨ (toNormal $h) ()))))))
           ;; Other expressions (e.g. function applications): leave
           ;; as is, they are not part of the boolean fragment.
           ($else $x)))
@@ -441,6 +496,72 @@
        ()
        (cons-atom (car-atom (cdr-atom (car-atom $xs)))
                   (pairSeconds (cdr-atom $xs)))))
+
+;; Structural equality-based membership test for ground terms.
+;; Named `isMember` (rather than `member`) to avoid clashing with
+;; Prolog's built-in `member/2`.
+(= (isMember $x $list)
+   (if (== $list ())
+       False
+       (if (== (car-atom $list) $x)
+           True
+           (isMember $x (cdr-atom $list)))))
+
+;; Compact a sorted operand list by removing duplicates and absorbed
+;; operands, preserving the input order.  $op is the outer operator
+;; of the expression being normalized: for ∧, a disjunction is
+;; absorbed when a literal earlier in the list is one of its
+;; operands; for ∨, a conjunction is absorbed when a literal earlier
+;; in the list is one of its operands.
+;;
+;; Uses an accumulator ($seen) of the operands already kept so that
+;; each element is checked against the previously kept ones.
+;;
+;; Implemented as two specialised clauses (one for each outer
+;; operator) so that `isConjunction` / `isDisjunction` can be used
+;; directly instead of dispatching on $op at every step.
+(= (compactList ∧ $ops)
+   (compactListImplConj $ops ()))
+
+(= (compactList ∨ $ops)
+   (compactListImplDisj $ops ()))
+
+(= (compactListImplConj $ops $seen)
+   (if (== $ops ())
+       ()
+       (let* (($hd (car-atom $ops))
+              ($tl (cdr-atom $ops)))
+         (if (or (isMember $hd $seen)
+                 (and (isDisjunction $hd)
+                      (hasLiteralOf $hd $seen)))
+             (compactListImplConj $tl $seen)
+             (cons-atom $hd (compactListImplConj $tl
+                                                 (cons-atom $hd $seen)))))))
+
+(= (compactListImplDisj $ops $seen)
+   (if (== $ops ())
+       ()
+       (let* (($hd (car-atom $ops))
+              ($tl (cdr-atom $ops)))
+         (if (or (isMember $hd $seen)
+                 (and (isConjunction $hd)
+                      (hasLiteralOf $hd $seen)))
+             (compactListImplDisj $tl $seen)
+             (cons-atom $hd (compactListImplDisj $tl
+                                                 (cons-atom $hd $seen)))))))
+
+;; Output True iff any literal (positive atom or negated atom) in
+;; $list is one of the top-level operands of $expr.  $expr must be a
+;; binary conjunction or disjunction expression.
+(= (hasLiteralOf $expr $list)
+   (if (== $list ())
+       False
+       (let $lit (car-atom $list)
+         (if (isLiteral $lit)
+             (if (containsOperand $expr $lit)
+                 True
+                 (hasLiteralOf $expr (cdr-atom $list)))
+             (hasLiteralOf $expr (cdr-atom $list))))))
 
 ;; Apply a unary function to every element of a list.  Used here to
 ;; build the sortKey/original pairs in `sortByN<`.  See the note on
@@ -533,9 +654,14 @@
              (let (, (MkControl $gsize $gdepth) (: $g (-> $a Bool)))
                (nupln_bc $kb (MkControl $fsize (- $depth 1))
                          (: $g (-> $a Bool)))
-               ;; Check that (∧ $f $g) is sorted according to the
-               ;; normal order with non contradicting arguments.
-               (if (and (isConjSorted (∧ $f $g)) (isConjNonContradict (∧ $f $g)))
+               ;; Check that (∧ $f $g) is in normal form: sorted,
+               ;; non contradicting, and free of absorption (no
+               ;; literal operand absorbed by a disjunction operand,
+               ;; e.g. (∧ F (∨ F G)) would reduce to F so it's not
+               ;; in normal form).
+               (if (and (isConjSorted (∧ $f $g))
+                        (and (isConjNonContradict (∧ $f $g))
+                             (noDisjAbsorption $f $g)))
                    (, (MkControl $gsize (min $fdepth $gdepth))
                       (: (∧ $f $g) (-> $a Bool)))
                    (empty)))))
@@ -564,9 +690,14 @@
              (let (, (MkControl $gsize $gdepth) (: $g (-> $a Bool)))
                (nupln_bc $kb (MkControl $fsize (- $depth 1))
                          (: $g (-> $a Bool)))
-               ;; Check that (∨ $f $g) is sorted according to the
-               ;; normal order with non contradicting arguments.
-               (if (and (isDisjSorted (∨ $f $g)) (isDisjNonContradict (∨ $f $g)))
+               ;; Check that (∨ $f $g) is in normal form: sorted,
+               ;; non contradicting, and free of absorption (no
+               ;; literal operand absorbed by a conjunction operand,
+               ;; e.g. (∨ F (∧ F G)) would reduce to F so it's not
+               ;; in normal form).
+               (if (and (isDisjSorted (∨ $f $g))
+                        (and (isDisjNonContradict (∨ $f $g))
+                             (noConjAbsorption $f $g)))
                    (, (MkControl $gsize (min $fdepth $gdepth))
                       (: (∨ $f $g) (-> $a Bool)))
                    (empty)))))

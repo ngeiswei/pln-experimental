@@ -193,8 +193,41 @@
                   (∨ (∧ (¬ F1) F2)
                      (∧ (¬ F3) (∨ (¬ F1) F2))))))
   True)
+!(test
+  (isNormal (∧ F (∨ F G)))
+  False)
+!(test
+  (isNormal (∧ (¬ F) (∨ (¬ F) G)))
+  False)
+!(test
+  (isNormal (∨ F (∧ F G)))
+  False)
+!(test
+  (isNormal (∧ F (∧ (∨ F H) G)))
+  False)
 
 ;; Test toNormal
+!(test
+  (toNormal (∧ F F))
+  F)
+!(test
+  (toNormal (∨ F F))
+  F)
+!(test
+  (toNormal (¬ (¬ F)))
+  F)
+!(test
+  (toNormal (∧ F (∨ F G)))
+  F)
+!(test
+  (toNormal (∧ (¬ F) (∨ (¬ F) G)))
+  (¬ F))
+!(test
+  (toNormal (∨ F (∧ F G)))
+  F)
+!(test
+  (toNormal (∧ F (∧ (∨ F H) G)))
+  (∧ F G))
 !(test
   (toNormal (∧ (∨ (∧ (∨ (¬ F1) F2) (¬ F3))
                   (∨ (∧ (¬ F1) F2)
@@ -442,3 +475,78 @@
           (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
           (, (≞ (→ (⊙ 2) (∧ F G)) ⊥)
              (≞ (→ (⊙ 3) (∧ F G)) ⊥)))))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Test composite predicate synthesis ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Define KB to test whether synthesized composite predicates are in
+;; normal form.
+!(bind! &kbn (new-space))
+!(add-atom &kbn (: F (-> UInt Bool)))
+!(add-atom &kbn (: G (-> UInt Bool)))
+!(add-atom &kbn (: H (-> UInt Bool)))
+
+;; Enumerate composite predicates in normal form up to depth 3.
+!(test
+  (sort-atom
+   (collapse (nupln_bc &kbn (MkControl 6 3) (: $cnd (-> UInt Bool)))))
+  (sort-atom
+   ((, (MkControl 5 2) (: F (-> UInt Bool)))
+    (, (MkControl 5 2) (: G (-> UInt Bool)))
+    (, (MkControl 5 2) (: H (-> UInt Bool)))
+    (, (MkControl 3 1) (: (∧ F G) (-> UInt Bool)))
+    (, (MkControl 3 1) (: (∧ F H) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∧ F (∧ G H)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∧ F (∨ G H)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∧ F (¬ G)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∧ F (¬ H)) (-> UInt Bool)))
+    (, (MkControl 3 1) (: (∧ G H) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∧ G (∨ F H)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∧ G (¬ H)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∧ H (∨ F G)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∧ (¬ F) G) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∧ (¬ F) H) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ F) (∧ G H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ F) (∨ F G)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ F) (∨ F H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ F) (∨ G H)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∧ (¬ F) (¬ G)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∧ (¬ F) (¬ H)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∧ (¬ G) H) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ G) (∨ F G)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ G) (∨ F H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ G) (∨ G H)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∧ (¬ G) (¬ H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ H) (∨ F G)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ H) (∨ F H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∧ (¬ H) (∨ G H)) (-> UInt Bool)))
+    (, (MkControl 3 1) (: (∨ F G) (-> UInt Bool)))
+    (, (MkControl 3 1) (: (∨ F H) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∨ F (∧ G H)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∨ F (∨ G H)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∨ F (¬ G)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∨ F (¬ H)) (-> UInt Bool)))
+    (, (MkControl 3 1) (: (∨ G H) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∨ G (∧ F H)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∨ G (¬ H)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∨ H (∧ F G)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∨ (¬ F) G) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∨ (¬ F) H) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ F) (∧ F G)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ F) (∧ F H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ F) (∧ G H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ F) (∨ G H)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∨ (¬ F) (¬ G)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∨ (¬ F) (¬ H)) (-> UInt Bool)))
+    (, (MkControl 2 0) (: (∨ (¬ G) H) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ G) (∧ F G)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ G) (∧ F H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ G) (∧ G H)) (-> UInt Bool)))
+    (, (MkControl 1 0) (: (∨ (¬ G) (¬ H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ H) (∧ F G)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ H) (∧ F H)) (-> UInt Bool)))
+    (, (MkControl 0 0) (: (∨ (¬ H) (∧ G H)) (-> UInt Bool)))
+    (, (MkControl 4 1) (: (¬ F) (-> UInt Bool)))
+    (, (MkControl 4 1) (: (¬ G) (-> UInt Bool)))
+    (, (MkControl 4 1) (: (¬ H) (-> UInt Bool))))))
