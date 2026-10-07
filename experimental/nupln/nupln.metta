@@ -126,14 +126,6 @@
 ;; ;;;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;
-;; isExpression ;;
-;;;;;;;;;;;;;;;;;;
-
-;; Check if $x is an expression
-(= (isExpression $x)
-   (== (get-metatype $x) Expression))
-
 ;;;;;;;;;;;
 ;; Arity ;;
 ;;;;;;;;;;;
@@ -141,7 +133,7 @@
 ;; Calculate the arity of a term, which is the number of elements of a
 ;; tuple if the metatype is Expression, 0 otherwise.
 (= (getArity $x)
-   (if (isExpression $x)
+   (if (is-expr $x)
        (if (== $x ())
            0
            (+ 1 (getArity (cdr-atom $x))))
@@ -154,7 +146,7 @@
 ;; Count the number of arguments of a binary operator in right
 ;; associative form.  For instance (∧ F (∧ G H)) has 3 arguments.
 (= (countArgsRA $op $x)
-   (if (isExpression $x)
+   (if (is-expr $x)
        (case $x
          ((($f $x1 $x2) (if (== $op $f)
                             (+ 1 (countArgsRA $op $x2))
@@ -183,15 +175,15 @@
 ;; it can only be a negation of a Symbol, Grounded or Variable
 ;; (although I am not completely sure about Variable, we'll see).
 (= (isLiteral $x)
-   (if (isExpression $x)
+   (if (is-expr $x)
        (case $x
-         ((($f $x1) (and (== $f ¬) (not (isExpression $x1))))
+         ((($f $x1) (and (== $f ¬) (not (is-expr $x1))))
           ($else False)))
        True))
 
 ;; Check if $x is a binary call with a given operator
 (= (isBinaryOp $op $x)
-   (if (isExpression $x)
+   (if (is-expr $x)
        (case $x
          ((($op $f $g) True)
           ($else False)))
@@ -211,7 +203,7 @@
 
 ;; Check if $x is a negation, meaning its root operator is ¬.
 (= (isNegation $x)
-   (if (isExpression $x)
+   (if (is-expr $x)
        (case $x
          ((($f $g) (== $f ¬))
           ($else False)))
@@ -299,7 +291,7 @@
 ;; probably more.  That code remains here under this form to test
 ;; normal form checking ideas.
 (= (isShallowNormal $x)
-   (if (isExpression $x)
+   (if (is-expr $x)
        (if (== $x ())
            True
            (case $x
@@ -307,7 +299,7 @@
               (($f) True)
               ;; Unary application
               ;; Like in MOSES, ¬ must be pushed to the leaves
-              ((¬ $g) (not (isExpression $g)))
+              ((¬ $g) (not (is-expr $g)))
               ;; Binary application
               ((∧ $g $h)
                ;; Must be in left associative form, with sorted and
@@ -330,7 +322,7 @@
 ;; Early benchmarks indicate that isNormal is a few fold slower than
 ;; isShallowNormal.
 (= (isNormal $x)
-   (if (isExpression $x)
+   (if (is-expr $x)
        (if (== $x ())
            True
            (let* (($hd (car-atom $x))
@@ -361,7 +353,7 @@
 ;; (like (¬ (∧ F G))) are left as-is, since pushing negation in is a
 ;; separate transformation.
 (= (toNormal $x)
-   (if (isExpression $x)
+   (if (is-expr $x)
        (case $x
          (;; Nullary application or empty expression: already normal.
           (($f) $x)
@@ -396,7 +388,7 @@
 ;; decision locally, leaving only one clause for the function and
 ;; avoiding spurious choice points.
 (= (flattenOp $op $x $acc)
-   (if (and (isExpression $x) (== (car-atom $x) $op))
+   (if (and (is-expr $x) (== (car-atom $x) $op))
        (flattenOp $op (car-atom (cdr-atom $x))
                   (flattenOp $op (car-atom (cdr-atom (cdr-atom $x))) $acc))
        (cons-atom $x $acc)))
@@ -596,7 +588,7 @@
                    (: $f (-> $a Bool)))
          ;; Check that $f is not an expression because, as in MOSES, ¬
          ;; is expected to be on literals only.
-         (if (isExpression $f)
+         (if (is-expr $f)
              (empty)
              (, (MkControl $fsize $fdepth) (: (¬ $f) (-> $a Bool)))))))
    ;; )
