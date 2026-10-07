@@ -277,51 +277,68 @@
        (!= (¬ $f) (getFstArg $g))
        (!= (¬ $f) $g)))
 
-;; Output True iff $lit is one of the top level operands of $expr.
-;; $expr must be a binary conjunction or disjunction expression.
-(= (containsOperand $expr $lit)
-   (if (or (isConjunction $expr) (isDisjunction $expr))
-       (or (== (getFstArg $expr) $lit)
-           (== (getSndArg $expr) $lit))
-       False))
+;; Dual of a binary boolean operator: ∧ and ∨ are duals of each
+;; other.
+(= (dualOp ∧) ∨)
+(= (dualOp ∨) ∧)
 
-;; Output True iff a literal $lit is one of the operands of a
-;; disjunction $disj.  Used to detect absorption in an outer
-;; conjunction.
-(= (isAbsorbedByDisj $disj $lit)
-   (if (isDisjunction $disj)
-       (containsOperand $disj $lit)
-       False))
+;; Complement of a literal: the complement of F is (¬ F) and vice
+;; versa.
+(= (complement $lit)
+   (if (isNegation $lit)
+       (getFstArg $lit)
+       (¬ $lit)))
 
-;; Output True iff a literal $lit is one of the operands of a
-;; conjunction $conj.  Used to detect absorption in an outer
-;; disjunction.
-(= (isAbsorbedByConj $conj $lit)
-   (if (isConjunction $conj)
-       (containsOperand $conj $lit)
-       False))
+;; Output True iff some element of $xs is a (== based) member of
+;; $ys.
+(= (anyMemberOf $xs $ys)
+   (if (== $xs ())
+       False
+       (if (isMember (car-atom $xs) $ys)
+           True
+           (anyMemberOf (cdr-atom $xs) $ys))))
 
-;; Output True iff no operand absorbs the other via disjunction
-;; absorption.  Used by normal form checks on conjunctions: in the
-;; context of an outer ∧, neither $f nor $g may be absorbed by a
-;; disjunction formed by the other (e.g. (∧ F (∨ F G)) would reduce
-;; to F, so it's not in normal form).
-(= (noDisjAbsorption $f $g)
-   (and (or (not (isLiteral $f))
-            (not (isAbsorbedByDisj $g $f)))
-        (or (not (isLiteral $g))
-            (not (isAbsorbedByDisj $f $g)))))
+;; Output True iff $lit is not one of the operands of any $dop
+;; clause in $ops (absorption), and its complement is not either
+;; (reduction).
+(= (literalFreeInClauses $dop $lit $ops)
+   (if (== $ops ())
+       True
+       (let $y (car-atom $ops)
+         (if (and (is-expr $y) (== (car-atom $y) $dop))
+             (let $chain (flattenOp $dop $y ())
+               (if (isMember $lit $chain)
+                   False
+                   (if (isMember (complement $lit) $chain)
+                       False
+                       (literalFreeInClauses $dop $lit (cdr-atom $ops)))))
+             (literalFreeInClauses $dop $lit (cdr-atom $ops))))))
 
-;; Output True iff no operand absorbs the other via conjunction
-;; absorption.  Used by normal form checks on disjunctions: in the
-;; context of an outer ∨, neither $f nor $g may be absorbed by a
-;; conjunction formed by the other (e.g. (∨ F (∧ F G)) would reduce
-;; to F, so it's not in normal form).
-(= (noConjAbsorption $f $g)
-   (and (or (not (isLiteral $f))
-            (not (isAbsorbedByConj $g $f)))
-        (or (not (isLiteral $g))
-            (not (isAbsorbedByConj $f $g)))))
+;; Output True iff no literal among $ops is one of the operands of a
+;; sibling $dop clause (absorption, e.g. (∧ F (∨ F G)) ≡ F so it is
+;; not in normal form), and no literal among $ops has its complement
+;; among the operands of a sibling $dop clause (reduction, e.g.
+;; (∧ (¬ F) (∨ F G)) ≡ (∧ (¬ F) G) so it is not in normal form
+;; either).  $ops is expected to be the flattened operand list of an
+;; expression whose operator is the dual of $dop.
+(= (noAbsorbNorReduceOps $dop $ops)
+   (if (== $ops ())
+       True
+       (let $lit (car-atom $ops)
+         (if (isLiteral $lit)
+             (if (literalFreeInClauses $dop $lit $ops)
+                 (noAbsorbNorReduceOps $dop (cdr-atom $ops))
+                 False)
+             (noAbsorbNorReduceOps $dop (cdr-atom $ops))))))
+
+;; Output True iff the ($op $f $g) expression contains no absorbed
+;; operand and no reducible literal/clause pair.  The check is
+;; carried out over the whole flattened $op chain, so that non
+;; adjacent operands, such as H and (∨ G H) in (∧ H (∨ F (∨ G H))),
+;; are checked against each other as well.
+(= (noAbsorbNorReduce $op $f $g)
+   (noAbsorbNorReduceOps (dualOp $op)
+                         (flattenOp $op $f (flattenOp $op $g ()))))
 
 ;; Check if the surface of given term is already in normal form.  The
 ;; idea is that since this would be called by the backward chainer to
@@ -349,18 +366,20 @@
               ;; Binary application
               ((∧ $g $h)
                ;; Must be in left associative form, with sorted and
-               ;; non contradicting arguments, and no absorption.
+               ;; non contradicting arguments, and neither absorption
+               ;; nor reduction.
                (and (not (isConjunction $g))
                     (and (isConjSorted (∧ $g $h))
                          (and (isConjNonContradict (∧ $g $h))
-                              (noDisjAbsorption $g $h)))))
+                              (noAbsorbNorReduce ∧ $g $h)))))
               ((∨ $g $h)
                ;; Must be in left associative form, with sorted and
-               ;; non contradicting arguments, and no absorption.
+               ;; non contradicting arguments, and neither absorption
+               ;; nor reduction.
                (and (not (isDisjunction $g))
                     (and (isDisjSorted (∨ $g $h))
                          (and (isDisjNonContradict (∨ $g $h))
-                              (noConjAbsorption $g $h)))))
+                              (noAbsorbNorReduce ∨ $g $h)))))
               ($else True))))
        True))
 
@@ -387,10 +406,13 @@
 ;; is to recursively normalize every subterm, then for binary ∧ and ∨
 ;; collect the operands (flattening left-associative chains), sort
 ;; them using the normal order (which agrees with Prolog's @< on the
-;; resulting expressions), compact the sorted list by removing
+;; resulting expressions), compact the sorted list (removing
 ;; duplicate operands and operands that are absorbed by another
-;; operand (e.g. F absorbs (∨ F G) in a conjunction), and finally
-;; rebuild a left-associative binary tree.
+;; operand, e.g. F absorbs (∨ F G) in a conjunction) and reduce it
+;; (removing from each dual clause the operands whose complement is a
+;; literal of the list, e.g. (∧ (¬ F) (∨ F G)) becomes (∧ (¬ F) G)),
+;; iterating until a fixpoint is reached, and finally rebuild a
+;; left-associative binary tree.
 ;;
 ;; Note that this is a syntactic reduction: it does not attempt to
 ;; simplify tautologies (∨ F (¬ F)) or contradictions (∧ F (¬ F)).
@@ -415,16 +437,18 @@
                  (¬ $inner))))
           ;; Conjunction: flatten the ∧ chain across the two
           ;; (already-normalized) arguments, sort, compact (remove
-          ;; duplicates and absorbed operands), and rebuild.
+          ;; duplicates and absorbed operands), reduce (remove
+          ;; complemented literals from disjunctive clauses), and
+          ;; rebuild.
           ((∧ $g $h)
-           (buildOp ∧ (compactList ∧
-                                   (sortByN< (flattenOp ∧ (toNormal $g)
-                                                        (flattenOp ∧ (toNormal $h) ()))))))
+           (buildOp ∧ (compactReduce ∧
+                                    (flattenOp ∧ (toNormal $g)
+                                               (flattenOp ∧ (toNormal $h) ())))))
           ;; Disjunction: same as above, with ∨.
           ((∨ $g $h)
-           (buildOp ∨ (compactList ∨
-                                   (sortByN< (flattenOp ∨ (toNormal $g)
-                                                        (flattenOp ∨ (toNormal $h) ()))))))
+           (buildOp ∨ (compactReduce ∨
+                                    (flattenOp ∨ (toNormal $g)
+                                               (flattenOp ∨ (toNormal $h) ())))))
           ;; Other expressions (e.g. function applications): leave
           ;; as is, they are not part of the boolean fragment.
           ($else $x)))
@@ -507,61 +531,72 @@
            True
            (isMember $x (cdr-atom $list)))))
 
-;; Compact a sorted operand list by removing duplicates and absorbed
-;; operands, preserving the input order.  $op is the outer operator
-;; of the expression being normalized: for ∧, a disjunction is
-;; absorbed when a literal earlier in the list is one of its
-;; operands; for ∨, a conjunction is absorbed when a literal earlier
-;; in the list is one of its operands.
-;;
-;; Uses an accumulator ($seen) of the operands already kept so that
-;; each element is checked against the previously kept ones.
-;;
-;; Implemented as two specialised clauses (one for each outer
-;; operator) so that `isConjunction` / `isDisjunction` can be used
-;; directly instead of dispatching on $op at every step.
-(= (compactList ∧ $ops)
-   (compactListImplConj $ops ()))
+;; Compact and reduce an operand list until a fixpoint is reached:
+;; sort it, remove duplicates and absorbed clauses, then remove from
+;; each dual clause the operands whose complement is a literal of the
+;; list.  Iterating is needed because reduction can collapse a clause
+;; into a literal, which may unsort the list and enable further
+;; reductions or absorptions.
+(= (compactReduce $op $ops)
+   (let* (($c (compactAbsorb $op (sortByN< $ops)))
+          ($r (reduceOperands $op $c)))
+     (if (== $r $c)
+         $c
+         (compactReduce $op $r))))
 
-(= (compactList ∨ $ops)
-   (compactListImplDisj $ops ()))
+;; Remove duplicate operands and operands absorbed by a literal of
+;; the list, preserving the input order.  $ops must be sorted so
+;; that literals (which absorb but are never absorbed) come before
+;; the clauses they may absorb.  Absorption is checked over the whole
+;; flattened dual chain of each clause, so that for instance
+;; (∨ F (∨ G H)) is detected as absorbed by H.
+(= (compactAbsorb $op $ops)
+   (compactAbsorbImpl (dualOp $op) $ops () ()))
 
-(= (compactListImplConj $ops $seen)
+(= (compactAbsorbImpl $dop $ops $seen $seenLits)
    (if (== $ops ())
        ()
        (let* (($hd (car-atom $ops))
               ($tl (cdr-atom $ops)))
-         (if (or (isMember $hd $seen)
-                 (and (isDisjunction $hd)
-                      (hasLiteralOf $hd $seen)))
-             (compactListImplConj $tl $seen)
-             (cons-atom $hd (compactListImplConj $tl
-                                                 (cons-atom $hd $seen)))))))
+         (if (isMember $hd $seen)
+             ;; Duplicate
+             (compactAbsorbImpl $dop $tl $seen $seenLits)
+             (if (and (is-expr $hd)
+                      (and (== (car-atom $hd) $dop)
+                           (anyMemberOf $seenLits (flattenOp $dop $hd ()))))
+                 ;; Clause absorbed by a previously seen literal
+                 (compactAbsorbImpl $dop $tl $seen $seenLits)
+                 (cons-atom $hd
+                            (compactAbsorbImpl $dop $tl
+                                               (cons-atom $hd $seen)
+                                               (if (isLiteral $hd)
+                                                   (cons-atom $hd $seenLits)
+                                                   $seenLits))))))))
 
-(= (compactListImplDisj $ops $seen)
-   (if (== $ops ())
-       ()
-       (let* (($hd (car-atom $ops))
-              ($tl (cdr-atom $ops)))
-         (if (or (isMember $hd $seen)
-                 (and (isConjunction $hd)
-                      (hasLiteralOf $hd $seen)))
-             (compactListImplDisj $tl $seen)
-             (cons-atom $hd (compactListImplDisj $tl
-                                                 (cons-atom $hd $seen)))))))
+;; Single reduction pass over $ops: remove from the top level chain
+;; of each dual clause of $ops every operand whose complement is a
+;; literal of $ops.  Dispatched per outer operator: for ∧ the dual
+;; clauses are disjunctions, for ∨ they are conjunctions.
+(= (reduceOperands ∧ $ops) (reduceOperandsImpl ∨ $ops))
+(= (reduceOperands ∨ $ops) (reduceOperandsImpl ∧ $ops))
 
-;; Output True iff any literal (positive atom or negated atom) in
-;; $list is one of the top-level operands of $expr.  $expr must be a
-;; binary conjunction or disjunction expression.
-(= (hasLiteralOf $expr $list)
-   (if (== $list ())
-       False
-       (let $lit (car-atom $list)
-         (if (isLiteral $lit)
-             (if (containsOperand $expr $lit)
-                 True
-                 (hasLiteralOf $expr (cdr-atom $list)))
-             (hasLiteralOf $expr (cdr-atom $list))))))
+(= (reduceOperandsImpl $dop $ops)
+   (let $lits (filter-atom $ops $x (isLiteral $x))
+     (map-atom $ops $x (reduceOperand $dop $lits $x))))
+
+;; Remove from the top level $dop chain of $x every operand whose
+;; complement is in $lits (e.g. (∨ F G) becomes G in the context of
+;; (∧ (¬ F) ...)).  If that would empty the chain, as in the
+;; contradiction (∧ F (∧ G (∨ (¬ F) (¬ G)))), $x is left as is,
+;; since simplifying contradictions is a separate concern.
+(= (reduceOperand $dop $lits $x)
+   (if (and (is-expr $x) (== (car-atom $x) $dop))
+       (let $chain (filter-atom (flattenOp $dop $x ())
+                                $c (not (isMember (complement $c) $lits)))
+         (if (== $chain ())
+             $x
+             (buildOp $dop $chain)))
+       $x))
 
 ;; Apply a unary function to every element of a list.  Used here to
 ;; build the sortKey/original pairs in `sortByN<`.  See the note on
@@ -655,13 +690,12 @@
                (nupln_bc $kb (MkControl $fsize (- $depth 1))
                          (: $g (-> $a Bool)))
                ;; Check that (∧ $f $g) is in normal form: sorted,
-               ;; non contradicting, and free of absorption (no
-               ;; literal operand absorbed by a disjunction operand,
-               ;; e.g. (∧ F (∨ F G)) would reduce to F so it's not
-               ;; in normal form).
+               ;; non contradicting, free of absorption (e.g.
+               ;; (∧ F (∨ F G)) ≡ F) and of reduction (e.g.
+               ;; (∧ (¬ F) (∨ F G)) ≡ (∧ (¬ F) G)).
                (if (and (isConjSorted (∧ $f $g))
                         (and (isConjNonContradict (∧ $f $g))
-                             (noDisjAbsorption $f $g)))
+                             (noAbsorbNorReduce ∧ $f $g)))
                    (, (MkControl $gsize (min $fdepth $gdepth))
                       (: (∧ $f $g) (-> $a Bool)))
                    (empty)))))
@@ -691,13 +725,12 @@
                (nupln_bc $kb (MkControl $fsize (- $depth 1))
                          (: $g (-> $a Bool)))
                ;; Check that (∨ $f $g) is in normal form: sorted,
-               ;; non contradicting, and free of absorption (no
-               ;; literal operand absorbed by a conjunction operand,
-               ;; e.g. (∨ F (∧ F G)) would reduce to F so it's not
-               ;; in normal form).
+               ;; non contradicting, free of absorption (e.g.
+               ;; (∨ F (∧ F G)) ≡ F) and of reduction (e.g.
+               ;; (∨ (¬ F) (∧ F G)) ≡ (∨ (¬ F) G)).
                (if (and (isDisjSorted (∨ $f $g))
                         (and (isDisjNonContradict (∨ $f $g))
-                             (noConjAbsorption $f $g)))
+                             (noAbsorbNorReduce ∨ $f $g)))
                    (, (MkControl $gsize (min $fdepth $gdepth))
                       (: (∨ $f $g) (-> $a Bool)))
                    (empty)))))

@@ -205,6 +205,35 @@
 !(test
   (isNormal (∧ F (∧ (∨ F H) G)))
   False)
+;; Reduction: a literal whose complement is an operand of a sibling
+;; dual clause is not in normal form, since the complement can be
+;; removed (e.g. (∧ (¬ F) (∨ F G)) ≡ (∧ (¬ F) G)).
+!(test
+  (isNormal (∧ (¬ F) (∨ F G)))
+  False)
+!(test
+  (isNormal (∧ F (∨ (¬ F) G)))
+  False)
+!(test
+  (isNormal (∨ (¬ F) (∧ F G)))
+  False)
+!(test
+  (isNormal (∨ F (∧ (¬ F) G)))
+  False)
+!(test
+  (isNormal (∧ (¬ F) G))
+  True)
+;; Deep (non adjacent) absorption and reduction inside a three
+;; operand chain.
+!(test
+  (isNormal (∧ H (∨ F (∨ G H))))
+  False)
+!(test
+  (isNormal (∧ (¬ H) (∨ F (∨ G H))))
+  False)
+!(test
+  (isNormal (∧ (¬ H) (∨ F G)))
+  True)
 
 ;; Test toNormal
 !(test
@@ -237,6 +266,52 @@
      (∨ (∧ F1 (∧ (¬ F2) F3))
         (∨ (∧ (¬ F1) F2)
            (∧ (¬ F3) (∨ (¬ F1) F2))))))
+;; Reduction in toNormal: complement literals are removed from the
+;; sibling dual clause.
+!(test
+  (toNormal (∧ (¬ F) (∨ F G)))
+  (∧ (¬ F) G))
+!(test
+  (toNormal (∧ F (∨ (¬ F) G)))
+  (∧ F G))
+!(test
+  (toNormal (∨ (¬ F) (∧ F G)))
+  (∨ (¬ F) G))
+!(test
+  (toNormal (∨ F (∧ (¬ F) G)))
+  (∨ F G))
+!(test
+  (toNormal (∧ (¬ F) (∨ F (∨ G H))))
+  (∧ (¬ F) (∨ G H)))
+;; Cascading reductions through clause collapse: (∨ F G) collapses
+;; to G, which then removes (¬ G) from its sibling.
+!(test
+  (toNormal (∧ (¬ F) (∧ (∨ F G) (∨ (¬ G) H))))
+  (∧ (¬ F) (∧ G H)))
+;; Re-sorting after a clause collapses into a literal: H drops below
+;; G after (∨ (¬ F) G) becomes G, so (∧ F (∧ H ...)) rebuilds to
+;; (∧ F (∧ G H)).
+!(test
+  (toNormal (∧ F (∧ H (∨ (¬ F) G))))
+  (∧ F (∧ G H)))
+;; Deep absorption: H absorbs (∨ F (∨ G H)).
+!(test
+  (toNormal (∧ H (∨ F (∨ G H))))
+  H)
+;; Reduction on contradictions rewrites them to an equivalent
+;; contradiction in different form.  The original
+;; (∧ F (∧ G (∨ (¬ F) (¬ G)))) is a contradiction (always false),
+;; and reducing the inner (∧ G (∨ (¬ F) (¬ G))) removes (¬ G) (whose
+;; complement G is in scope), collapsing (∨ (¬ F) (¬ G)) to (¬ F)
+;; and giving (∧ (¬ F) G).  The result (∧ F (∧ (¬ F) G)) is also a
+;; contradiction (F ∧ ¬F), equivalent to the original.  The guard
+;; against emptying a clause (when EVERY operand of a dual clause
+;; is the complement of some literal of the list) does not apply
+;; here, because only one of the two ¬ operands was a complement at
+;; the level where reduction ran.
+!(test
+  (toNormal (∧ F (∧ G (∨ (¬ F) (¬ G)))))
+  (∧ F (∧ (¬ F) G)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
@@ -508,19 +583,13 @@
     (, (MkControl 2 0) (: (∧ (¬ F) G) (-> UInt Bool)))
     (, (MkControl 2 0) (: (∧ (¬ F) H) (-> UInt Bool)))
     (, (MkControl 0 0) (: (∧ (¬ F) (∧ G H)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∧ (¬ F) (∨ F G)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∧ (¬ F) (∨ F H)) (-> UInt Bool)))
     (, (MkControl 0 0) (: (∧ (¬ F) (∨ G H)) (-> UInt Bool)))
     (, (MkControl 1 0) (: (∧ (¬ F) (¬ G)) (-> UInt Bool)))
     (, (MkControl 1 0) (: (∧ (¬ F) (¬ H)) (-> UInt Bool)))
     (, (MkControl 2 0) (: (∧ (¬ G) H) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∧ (¬ G) (∨ F G)) (-> UInt Bool)))
     (, (MkControl 0 0) (: (∧ (¬ G) (∨ F H)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∧ (¬ G) (∨ G H)) (-> UInt Bool)))
     (, (MkControl 1 0) (: (∧ (¬ G) (¬ H)) (-> UInt Bool)))
     (, (MkControl 0 0) (: (∧ (¬ H) (∨ F G)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∧ (¬ H) (∨ F H)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∧ (¬ H) (∨ G H)) (-> UInt Bool)))
     (, (MkControl 3 1) (: (∨ F G) (-> UInt Bool)))
     (, (MkControl 3 1) (: (∨ F H) (-> UInt Bool)))
     (, (MkControl 1 0) (: (∨ F (∧ G H)) (-> UInt Bool)))
@@ -533,20 +602,14 @@
     (, (MkControl 1 0) (: (∨ H (∧ F G)) (-> UInt Bool)))
     (, (MkControl 2 0) (: (∨ (¬ F) G) (-> UInt Bool)))
     (, (MkControl 2 0) (: (∨ (¬ F) H) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∨ (¬ F) (∧ F G)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∨ (¬ F) (∧ F H)) (-> UInt Bool)))
     (, (MkControl 0 0) (: (∨ (¬ F) (∧ G H)) (-> UInt Bool)))
     (, (MkControl 0 0) (: (∨ (¬ F) (∨ G H)) (-> UInt Bool)))
     (, (MkControl 1 0) (: (∨ (¬ F) (¬ G)) (-> UInt Bool)))
     (, (MkControl 1 0) (: (∨ (¬ F) (¬ H)) (-> UInt Bool)))
     (, (MkControl 2 0) (: (∨ (¬ G) H) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∨ (¬ G) (∧ F G)) (-> UInt Bool)))
     (, (MkControl 0 0) (: (∨ (¬ G) (∧ F H)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∨ (¬ G) (∧ G H)) (-> UInt Bool)))
     (, (MkControl 1 0) (: (∨ (¬ G) (¬ H)) (-> UInt Bool)))
     (, (MkControl 0 0) (: (∨ (¬ H) (∧ F G)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∨ (¬ H) (∧ F H)) (-> UInt Bool)))
-    (, (MkControl 0 0) (: (∨ (¬ H) (∧ G H)) (-> UInt Bool)))
     (, (MkControl 4 1) (: (¬ F) (-> UInt Bool)))
     (, (MkControl 4 1) (: (¬ G) (-> UInt Bool)))
     (, (MkControl 4 1) (: (¬ H) (-> UInt Bool))))))
