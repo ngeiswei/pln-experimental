@@ -245,6 +245,12 @@
 ;; ;;;;;;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;;;;;;
 
+;; Reduction to normal form, or early pruning to only synthesize
+;; candidates in normal forms tremendously helps.  With 3 input
+;; features (3 boolean variables), at depth up to 4, 531438 candidates
+;; can be generated without any normalization.  With full
+;; normalization (full as of 2026-10-07) only 686 candidates remains.
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Normal Form Checker ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
