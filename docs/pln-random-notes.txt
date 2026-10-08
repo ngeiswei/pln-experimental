@@ -1409,3 +1409,26 @@ H ≞ <s c>
 {H, T} ~ Bernoulli(p), p ~ beta(𝛼, 𝛽)
 
 P(𝜋∈𝛱)
+----------------------------- No variable ----------------------
+
+P(x) -> Q(x)
+∀x (P(x) -> Q(x))
+
+-> : Bool x Bool -> Bool
+-> : (Domain -> Bool) x (Domain -> Bool) -> Bool
+
+P -> Q
+
+P : Domain -> Bool
+Q : Domain -> Bool
+
+∀x (P(x) ∧ Q(S(x))) -> R(C(x, S(x)))
+
+Q(x) ----> Q(S(x))
+
+(P ∧ M(Q)) : Domain -> Bool
+MC(R) : Domain -> Bool
+
+(𝜆x (P(x) ∧ Q(S(x)))) -> (𝜆y R(C(y, S(y))))
+
+(P ∧ M(Q)) -> MC(R)
