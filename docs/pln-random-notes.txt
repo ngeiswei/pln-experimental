@@ -1432,3 +1432,67 @@ MC(R) : Domain -> Bool
 (𝜆x (P(x) ∧ Q(S(x)))) -> (𝜆y R(C(y, S(y))))
 
 (P ∧ M(Q)) -> MC(R)
+
+-------------------- Formalizing ECAN in PLN --------------------
+
+First run:
+
+G(t) = ExistTheMaze(t)
+
+(AtTime t G) = <1 0.9>
+
+TEXT ...
+
+(STI (≞ (-> Raven Black) (stv 1 0.8)) 64)
+(STI (≞ Raven (stv 0.1 0.5)) 45)
+(STI (≞ Black (stv 0.1 0.5)) 65)
+
+
+(-> Raven Black)
+(-> Raven Bird)
+
+=== ECAN ===>
+
+(STI Raven 50) ...
+
+50ms
+
+
+(STI (-> Raven Black) 0)
+(STI (-> Raven Bird) 0)
+
+(Stimulate (-> Raven Black))
+
+=============>
+
+(STI (-> Raven Black) 50)
+(STI (-> Raven Bird) 0)
+
+==== Diffuse ====>
+
+(STI (-> Raven Black) 30)
+(STI (-> Raven Bird) 0)
+(STI Raven 10)
+(STI Black 10)
+
+==== Diffuse ====>
+
+(STI (-> Raven Black) 20)
+(STI (-> Raven Bird) 8)
+(STI Raven 7)
+(STI Black 10)
+(STI Bird 3)
+(STI A 1)
+(STI B 1)
+...
+
+==== Hebbian Link Creation ====>
+
+(Hebbian Black Bird)
+
+Raven = P ∧ Q ∨ R
+
+
+is important
+
+Attentional Focus : { 
