@@ -33,8 +33,11 @@
 ;; ..., FN, and the domain is {0, 1, ..., 2^N - 1}.
 (= (paritySize) 2)
 
-;; Enable memoization
-(= (enableMemo) True)
+;; Enable memoization.  Beware: memoization tends to hurt
+;; performances.  It can be convenient for debudding though.  Also be
+;; careful because it can changes the order in which functions are
+;; being evaluated, thus modifying the search policy.
+(= (enableMemo) False)
 
 ;;;;;;;;;;;;;
 ;; Helpers ;;
@@ -144,7 +147,7 @@
 !(if (enableMemo)
      (progn
       (memoize nupln_bc)
-      (config-memoize (unique-limit 1000000) (strategy wtinylfu) (size-limit 64)))
+      (config-memoize (unique-limit 10000) (strategy wtinylfu) (size-limit 64)))
      (empty))
 
 ;; Populate kb
@@ -160,11 +163,17 @@
 ;; size and depth budgets are:
 ;;
 ;; * N=1: (MkControl 15 4) with solution:
+;;
 ;;   (¬ F1)
+;;
 ;; * N=2: (MkControl 135 6) with solutions:
+;;
 ;;   (∨ (∧ F1 F2) (∧ (¬ F1) (¬ F2)))
 ;;   (∧ (∨ F1 (¬ F2)) (∨ (¬ F1) F2))
-;; * N=3: (MkControl 851 9) with solution:
+;;
+;; * N=3: (MkControl 1002 9) with solution.  Note that without any
+;;        balancing over the product the size budget used to be 851.
+;;
 ;;   (∧ (∨ F1 (∨ (¬ F2) F3))
 ;;      (∨ (∧ F1 (∧ (¬ F2) F3))
 ;;         (∨ (∧ (¬ F1) F2)
