@@ -68,9 +68,9 @@
 ;;
 ;;   being True with x sampled from its domain according to its prior.
 ;;
-;; * TTrue: a -> Bool, primitive predicate that returns only True.
+;; * 𝕋: a -> Bool, primitive predicate that returns only True.
 ;;
-;; * FFalse: a -> Bool, primitive predicate that returns only False.
+;; * 𝔽: a -> Bool, primitive predicate that returns only False.
 ;;
 ;; * ∧: (a -> Bool) -> (a -> Bool) -> (a -> Bool), to build the
 ;;      point-wise conjunction of two predicates.
@@ -426,8 +426,11 @@
 ;; left-associative binary tree.
 ;;
 ;; Note that this is a syntactic reduction: it does not attempt to
-;; simplify tautologies (∨ F (¬ F)) or contradictions (∧ F (¬ F)).
-;; The result is an equivalent term that satisfies isNormal.
+;; simplify tautologies (∨ F (¬ F)) or contradictions (∧ F (¬ F)),
+;; except when the literal and its complement are both visible in
+;; the flattened ∧ or ∨ chain (in which case the result collapses
+;; to 𝔽 or 𝕋 respectively via `hasContradiction`).  The result is
+;; an equivalent term that satisfies isNormal.
 ;;
 ;; Note also that (¬ g) is normalized by normalizing g.  If g reduces
 ;; to a negation, the two ¬ cancel out (double negation elimination).
@@ -447,19 +450,26 @@
                  (getFstArg $inner)
                  (¬ $inner))))
           ;; Conjunction: flatten the ∧ chain across the two
-          ;; (already-normalized) arguments, sort, compact (remove
-          ;; duplicates and absorbed operands), reduce (remove
-          ;; complemented literals from disjunctive clauses), and
-          ;; rebuild.
+          ;; (already-normalized) arguments, then either collapse to
+          ;; 𝔽 if a literal and its complement are both present (a
+          ;; contradiction), or sort, compact (remove duplicates and
+          ;; absorbed operands), reduce (remove complemented literals
+          ;; from disjunctive clauses), and rebuild.
           ((∧ $g $h)
-           (buildOp ∧ (compactReduce ∧
-                                    (flattenOp ∧ (toNormal $g)
-                                               (flattenOp ∧ (toNormal $h) ())))))
-          ;; Disjunction: same as above, with ∨.
+           (let $ops (flattenOp ∧ (toNormal $g)
+                                 (flattenOp ∧ (toNormal $h) ()))
+             (if (hasContradiction $ops)
+                 𝔽
+                 (buildOp ∧ (compactReduce ∧ $ops)))))
+          ;; Disjunction: same as above, with ∨.  Collapse to 𝕋 if
+          ;; a literal and its complement are both present (a
+          ;; tautology).
           ((∨ $g $h)
-           (buildOp ∨ (compactReduce ∨
-                                    (flattenOp ∨ (toNormal $g)
-                                               (flattenOp ∨ (toNormal $h) ())))))
+           (let $ops (flattenOp ∨ (toNormal $g)
+                                 (flattenOp ∨ (toNormal $h) ()))
+             (if (hasContradiction $ops)
+                 𝕋
+                 (buildOp ∨ (compactReduce ∨ $ops)))))
           ;; Other expressions (e.g. function applications): leave
           ;; as is, they are not part of the boolean fragment.
           ($else $x)))
@@ -541,6 +551,24 @@
        (if (== (car-atom $list) $x)
            True
            (isMember $x (cdr-atom $list)))))
+
+;; Output True iff $ops contains a literal $lit and the complement
+;; of $lit (i.e. (¬ $lit) for positive literals and the unnegated
+;; argument for negative literals).  Used by toNormal to short-circuit
+;; conjunction chains to 𝔽 (a conjunction is false when it contains
+;; a literal and its complement) and disjunction chains to 𝕋 (a
+;; disjunction is true when it contains a literal and its
+;; complement), even when the contradictory pair is non-adjacent in
+;; the flat chain.
+(= (hasContradiction $ops)
+   (if (== $ops ())
+       False
+       (let $lit (car-atom $ops)
+         (if (isLiteral $lit)
+             (if (isMember (complement $lit) (cdr-atom $ops))
+                 True
+                 (hasContradiction (cdr-atom $ops)))
+             (hasContradiction (cdr-atom $ops))))))
 
 ;; Compact and reduce an operand list until a fixpoint is reached:
 ;; sort it, remove duplicates and absorbed clauses, then remove from
@@ -1173,7 +1201,7 @@
 ;; theorem would be allow grow a product of products arbitrarily
 ;; large.
 (= (nupln_bc $kb (MkControl $size $depth) (: (, $x $y) (, $a $b)))
-   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (, $x $y) (, $a $b)))
+   (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (, $x $y) (, $a $b)))
    ;; The size budget must cover the whole proof: 1 for the
    ;; introduction of `,` plus the proofs of the premises.  The first
    ;; premise is charged the unit of `,`, the second premise inherits
@@ -1205,4 +1233,4 @@
          (, (MkControl $ysize (min $xdepth $ydepth))
             (: (, $x $y) (, $a $b))))
        (empty)))
-   ;; )
+   )

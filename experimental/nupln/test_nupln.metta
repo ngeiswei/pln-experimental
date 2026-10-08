@@ -63,6 +63,12 @@
 
 ;; Test isShallowNormal
 !(test
+  (isShallowNormal 𝕋)
+  True)
+!(test
+  (isShallowNormal 𝔽)
+  True)
+!(test
   (isShallowNormal F)
   True)
 !(test
@@ -115,6 +121,12 @@
   False)
 
 ;; Test isNormal
+!(test
+  (isNormal 𝕋)
+  True)
+!(test
+  (isNormal 𝔽)
+  True)
 !(test
   (isNormal F)
   True)
@@ -298,20 +310,12 @@
 !(test
   (toNormal (∧ H (∨ F (∨ G H))))
   H)
-;; Reduction on contradictions rewrites them to an equivalent
-;; contradiction in different form.  The original
-;; (∧ F (∧ G (∨ (¬ F) (¬ G)))) is a contradiction (always false),
-;; and reducing the inner (∧ G (∨ (¬ F) (¬ G))) removes (¬ G) (whose
-;; complement G is in scope), collapsing (∨ (¬ F) (¬ G)) to (¬ F)
-;; and giving (∧ (¬ F) G).  The result (∧ F (∧ (¬ F) G)) is also a
-;; contradiction (F ∧ ¬F), equivalent to the original.  The guard
-;; against emptying a clause (when EVERY operand of a dual clause
-;; is the complement of some literal of the list) does not apply
-;; here, because only one of the two ¬ operands was a complement at
-;; the level where reduction ran.
 !(test
   (toNormal (∧ F (∧ G (∨ (¬ F) (¬ G)))))
-  (∧ F (∧ (¬ F) G)))
+  𝔽)
+!(test
+  (toNormal (∨ (¬ F) (∨ (¬ G) (∧ F G))))
+  𝕋)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
