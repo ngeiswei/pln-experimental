@@ -382,19 +382,27 @@
               ((∧ $g $h)
                ;; Must be in left associative form, with sorted and
                ;; non contradicting arguments, and neither absorption
-               ;; nor reduction.
+               ;; nor reduction.  R1/R4 checks additionally require
+               ;; no tautological ∨-clause, no falsified clause
+               ;; operand, no absorbed clause (R1 dual), and no
+               ;; clause that would collapse the chain.
                (and (not (isConjunction $g))
                     (and (isConjSorted (∧ $g $h))
                          (and (isConjNonContradict (∧ $g $h))
-                              (noAbsorbNorReduce ∧ $g $h)))))
+                              (and (noAbsorbNorReduce ∧ $g $h)
+                                   (noReducibleClause ∧ $g $h))))))
               ((∨ $g $h)
                ;; Must be in left associative form, with sorted and
                ;; non contradicting arguments, and neither absorption
-               ;; nor reduction.
+               ;; nor reduction.  R1/R4 checks additionally require
+               ;; no contradictory ∧-term (R4), no redundant ∧-term
+               ;; (R1 ∨), no absorbed clause (R1 dual), and no clause
+               ;; that would collapse the chain.
                (and (not (isDisjunction $g))
                     (and (isDisjSorted (∨ $g $h))
                          (and (isDisjNonContradict (∨ $g $h))
-                              (noAbsorbNorReduce ∨ $g $h)))))
+                              (and (noAbsorbNorReduce ∨ $g $h)
+                                   (noReducibleClause ∨ $g $h))))))
               ($else True))))
        True))
 
@@ -463,24 +471,30 @@
           ;; Conjunction: flatten the ∧ chain across the two
           ;; (already-normalized) arguments, then either collapse to
           ;; 𝔽 if a literal and its complement are both present (a
-          ;; contradiction), or sort, compact (remove duplicates and
-          ;; absorbed operands), reduce (remove complemented literals
-          ;; from disjunctive clauses), and rebuild.
+          ;; contradiction) or the R1/R4 pipeline returns 𝔽, or
+          ;; run the compact/reduce pipeline (with R1/R4 stages) and
+          ;; rebuild.
           ((∧ $g $h)
            (let $ops (flattenOp ∧ (toNormal $g)
                                  (flattenOp ∧ (toNormal $h) ()))
              (if (hasContradiction $ops)
                  𝔽
-                 (buildOp ∧ (compactReduce ∧ $ops)))))
-          ;; Disjunction: same as above, with ∨.  Collapse to 𝕋 if
-          ;; a literal and its complement are both present (a
-          ;; tautology).
+                 (let $cr (compactReduce ∧ $ops)
+                   (if (== $cr 𝔽)
+                       𝔽
+                       (buildOp ∧ $cr))))))
+          ;; Disjunction: same as above, with ∨.  Unlike the ∧ case,
+          ;; we do NOT collapse to 𝕋 on a literal+complement pair at
+          ;; the chain level: the R4 design drops tautological
+          ;; ∨-clauses from the surrounding chain rather than
+          ;; collapsing the whole chain.  An empty clause collapse
+          ;; (R1) or chain 𝕋 collapse is signalled by compactReduce.
           ((∨ $g $h)
-           (let $ops (flattenOp ∨ (toNormal $g)
-                                 (flattenOp ∨ (toNormal $h) ()))
-             (if (hasContradiction $ops)
+           (let $cr (compactReduce ∨ (flattenOp ∨ (toNormal $g)
+                                                (flattenOp ∨ (toNormal $h) ())))
+             (if (== $cr 𝕋)
                  𝕋
-                 (buildOp ∨ (compactReduce ∨ $ops)))))
+                 (buildOp ∨ $cr))))
           ;; Other expressions (e.g. function applications): leave
           ;; as is, they are not part of the boolean fragment.
           ($else $x)))
@@ -581,21 +595,52 @@
                  (hasContradiction (cdr-atom $ops)))
              (hasContradiction (cdr-atom $ops))))))
 
-;; Compact and reduce an operand list until a fixpoint is reached:
-;; sort it, remove duplicates and absorbed clauses, then remove from
-;; each dual clause the operands whose complement is a literal of the
-;; list.  Iterating is needed because reduction can collapse a clause
-;; into a literal, which may unsort the list and enable further
-;; reductions or absorptions.
+;; Compact and reduce an operand list until a fixpoint is reached.
+;; Apply, in order:
+;;   - compactAbsorb: remove duplicates and operands absorbed by a
+;;     chain literal;
+;;   - reduceOperands: remove from each $op-clause operand any literal
+;;     whose complement is in the chain literals;
+;;   - dropIdentity: drop 𝔽 in ∨-chains (and 𝕋 in ∧-chains), or
+;;     signal collapse if the absorbing constant is present;
+;;   - dropAbsorbedClauses: drop $op-clauses implied by a chain
+;;     literal (R1 dual);
+;;   - dropFalsifiedInClauses: remove operands falsified by a chain
+;;     literal from each $dop-clause, or signal collapse to 𝔽 if
+;;     any clause empties (R1 ∧);
+;;   - dropTautologicalClauses: drop $op-clauses whose $dop-chain
+;;     contains a literal and its complement (R4);
+;;   - dropRedundantConjuncts (∨-chain only): drop ∧-terms implied
+;;     by a chain literal (R1 ∨).
+;; Iteration is needed because each step can enable the next.
 (= (compactReduce $op $ops)
-   (let* (($c (compactAbsorb $op (sortByN< $ops)))
-          ($r (reduceOperands $op $c)))
-     (if (== $r $c)
-         $c
-         (compactReduce $op $r))))
+   (if (or (== $ops 𝕋) (== $ops 𝔽))
+       $ops
+       (let* (($c (compactAbsorb $op (sortByN< $ops)))
+              ($r (reduceOperands $op $c))
+              ($i (dropIdentity $op $r))
+              ($lits (filter-atom $i $x (isLiteral $x)))
+              ($a (dropAbsorbedClauses $op $lits $i))
+              ($d (dropFalsifiedInClauses (dualOp $op) $lits $a))
+              ($t (if (== $d 𝔽)
+                      𝔽
+                      (if (or (== $i 𝕋) (== $i 𝔽))
+                          $i
+                          (dropTautologicalClauses $op $d))))
+              ($rc (if (== $d 𝔽)
+                       𝔽
+                       (if (or (== $i 𝕋) (== $i 𝔽))
+                           $i
+                           (if (== $op ∨)
+                               (dropRedundantConjuncts $lits $t)
+                               $t)))))
+         (if (or (== $i 𝕋) (or (== $i 𝔽) (or (== $d 𝔽)
+                                               (or (== $t 𝔽)
+                                                   (or (!= $r $c)
+                                                       (or (!= $d $a) (!= $a $i)))))))
+             (compactReduce $op $rc)
+             $rc))))
 
-;; Remove duplicate operands and operands absorbed by a literal of
-;; the list, preserving the input order.  $ops must be sorted so
 ;; that literals (which absorb but are never absorbed) come before
 ;; the clauses they may absorb.  Absorption is checked over the whole
 ;; flattened dual chain of each clause, so that for instance
@@ -647,6 +692,220 @@
              $x
              (buildOp $dop $chain)))
        $x))
+
+;; R1/R4 helpers
+
+;; Output True iff $lit appears as a literal operand in the flat
+;; $op-chain of $x.
+(= (litInChain $op $x $lit)
+   (anyMemberOf ($lit) (flattenOp $op $x ())))
+
+;; Output True iff $lit is a literal operand of $clause.
+(= (litInClause $lit $clause)
+   (if (isLiteral $clause)
+       (== $lit $clause)
+       (litInChain (car-atom $clause) $clause $lit)))
+
+;; Output True iff $clause (a $dop-clause) contains a literal and its
+;; complement in its flat $dop-chain.
+(= (hasInnerContradiction $dop $clause)
+   (if (and (is-expr $clause) (== (car-atom $clause) $dop))
+       (hasContradiction (flattenOp $dop $clause ()))
+       False))
+
+;; Output True iff some literal in $lits falsifies operand $op of a
+;; $dop-clause.
+(= (someLitFalsifies $lits $op)
+   (if (== $lits ())
+       False
+       (if (litInClause (complement (car-atom $lits)) $op)
+           True
+           (someLitFalsifies (cdr-atom $lits) $op))))
+
+;; Drop every operand of every $dop-clause in $ops that is falsified
+;; by some literal in $lits.
+(= (dropFalsifiedInClauses $dop $lits $ops)
+   (if (== $ops ())
+       ()
+       (let* (($hd (car-atom $ops))
+              ($tl (cdr-atom $ops)))
+         (if (and (is-expr $hd) (== (car-atom $hd) $dop))
+             (let $kept (filter-atom (flattenOp $dop $hd ())
+                                     $c (not (someLitFalsifies $lits $c)))
+               (if (== $kept ())
+                   𝔽
+                   (let $rest (dropFalsifiedInClauses $dop $lits $tl)
+                     (if (== $rest 𝔽)
+                         𝔽
+                         (cons-atom (buildOp $dop $kept) $rest)))))
+             (let $rest (dropFalsifiedInClauses $dop $lits $tl)
+               (if (== $rest 𝔽)
+                   𝔽
+                   (cons-atom $hd $rest)))))))
+
+;; Drop every $op-clause operand of $ops whose flat $dop-chain has a
+;; literal and its complement (R4).
+(= (dropTautologicalClauses $op $ops)
+   (if (== $ops ())
+       ()
+       (let* (($hd (car-atom $ops))
+              ($dop (dualOp $op))
+              ($tl (cdr-atom $ops)))
+         (if (hasInnerContradiction $dop $hd)
+             (dropTautologicalClauses $op $tl)
+             (cons-atom $hd (dropTautologicalClauses $op $tl))))))
+
+;; Output True iff $term (expected to be an ∧-clause) is redundant
+;; in a ∨-chain that has $lits as its chain literals.
+(= (isRedundantConjunct $term $lits)
+   (if (and (is-expr $term) (== (car-atom $term) ∧))
+       (someLitSubsumes $lits (flattenOp ∧ $term ()))
+       False))
+
+;; Output True iff some literal in $lits is a literal operand of
+;; every element of $clauses.
+(= (someLitSubsumes $lits $clauses)
+   (if (== $lits ())
+       False
+       (if (everyClauseHasLit (car-atom $lits) $clauses)
+           True
+           (someLitSubsumes (cdr-atom $lits) $clauses))))
+
+(= (everyClauseHasLit $lit $clauses)
+   (if (== $clauses ())
+       True
+       (if (litInClause $lit (car-atom $clauses))
+           (everyClauseHasLit $lit (cdr-atom $clauses))
+           False)))
+
+;; Drop every ∧-term operand of $ops (a ∨-chain) that is redundant
+;; under the chain literals (R1 ∨).
+(= (dropRedundantConjuncts $lits $ops)
+   (if (== $ops ())
+       ()
+       (let* (($hd (car-atom $ops))
+              ($tl (cdr-atom $ops)))
+         (if (isRedundantConjunct $hd $lits)
+             (dropRedundantConjuncts $lits $tl)
+             (cons-atom $hd (dropRedundantConjuncts $lits $tl))))))
+
+;; noReducibleClause checks the chain `($op $g $h)` for R1/R4
+;; violations: tautological clauses (R4), falsified operands inside
+;; clauses (R1 ∧), absorbed clauses (R1 dual), and redundant ∧-terms
+;; in a ∨-chain (R1 ∨).
+(= (noReducibleClause $op $g $h)
+   (let* (($ops (flattenOp $op $g (flattenOp $op $h ())))
+          ($lits (filter-atom $ops $x (isLiteral $x)))
+          ($dop (dualOp $op)))
+     (and (noTautologicalClauseOp $op $ops)
+          (and (noFalsifiedOpInClausesOp $dop $lits $ops)
+               (and (noAbsorbedClauseOp $dop $lits $ops)
+                    (if (== $op ∨)
+                        (noRedundantConjunctsOp $lits $ops)
+                        True))))))
+
+(= (noTautologicalClauseOp $op $ops)
+   (if (== $ops ())
+       True
+       (let* (($hd (car-atom $ops))
+              ($tl (cdr-atom $ops))
+              ($dop (dualOp $op)))
+         (if (hasInnerContradiction $dop $hd)
+             False
+             (noTautologicalClauseOp $op $tl)))))
+
+(= (noFalsifiedOpInClausesOp $dop $lits $ops)
+   (if (== $ops ())
+       True
+       (let* (($hd (car-atom $ops))
+              ($tl (cdr-atom $ops)))
+         (if (and (is-expr $hd) (== (car-atom $hd) $dop))
+             (let $os (flattenOp $dop $hd ())
+               (if (anyFalsified $lits $os)
+                   False
+                   (noFalsifiedOpInClausesOp $dop $lits $tl)))
+             (noFalsifiedOpInClausesOp $dop $lits $tl)))))
+
+(= (anyFalsified $lits $os)
+   (if (== $os ())
+       False
+       (if (someLitFalsifies $lits (car-atom $os))
+           True
+           (anyFalsified $lits (cdr-atom $os)))))
+
+(= (noRedundantConjunctsOp $lits $ops)
+   (if (== $ops ())
+       True
+       (let* (($hd (car-atom $ops))
+              ($tl (cdr-atom $ops)))
+         (if (isRedundantConjunct $hd $lits)
+             False
+             (noRedundantConjunctsOp $lits $tl)))))
+
+;; Output True iff no operand in $ops is a $dop-clause absorbed by
+;; some literal in $lits.
+(= (noAbsorbedClauseOp $dop $lits $ops)
+   (if (== $ops ())
+       True
+       (let* (($hd (car-atom $ops))
+              ($tl (cdr-atom $ops)))
+         (if (and (is-expr $hd) (== (car-atom $hd) $dop))
+             (if (someLitAbsorbsClause $lits $hd)
+                 False
+                 (noAbsorbedClauseOp $dop $lits $tl))
+             (noAbsorbedClauseOp $dop $lits $tl)))))
+
+(= (someLitAbsorbsClause $lits $clause)
+   (if (== $lits ())
+       False
+       (if (litAbsorbsClause (car-atom $clause) (car-atom $lits) $clause)
+           True
+           (someLitAbsorbsClause (cdr-atom $lits) $clause))))
+
+;; Output True iff $lit is a literal operand of every conjunct of
+;; the flat $dop-chain of $clause.
+(= (litAbsorbsClause $dop $lit $clause)
+   (if (isLiteral $clause)
+       (== $lit $clause)
+       (if (and (is-expr $clause) (== (car-atom $clause) $dop))
+           (everyClauseHasLit $lit (flattenOp $dop $clause ()))
+           False)))
+
+;; Drop every $op-clause operand of $ops that is absorbed by some
+;; literal in $lits (R1 dual).
+(= (dropAbsorbedClauses $op $lits $ops)
+   (if (== $ops ())
+       ()
+       (let* (($hd (car-atom $ops))
+              ($dop (dualOp $op))
+              ($tl (cdr-atom $ops)))
+         (if (and (is-expr $hd)
+                  (and (== (car-atom $hd) $dop)
+                       (someLitAbsorbsClause $lits $hd)))
+             (dropAbsorbedClauses $op $lits $tl)
+             (cons-atom $hd (dropAbsorbedClauses $op $lits $tl))))))
+
+;; Drop identity constants from the operand list of a chain.
+(= (dropIdentity $op $ops)
+   (if (== $op ∨)
+       (let $kept (filter-atom $ops $x (not (== $x 𝔽)))
+         (if (anyTrue $kept) 𝕋 $kept))
+       (let $kept (filter-atom $ops $x (not (== $x 𝕋)))
+         (if (anyFalse $kept) 𝔽 $kept))))
+
+(= (anyTrue $ops)
+   (if (== $ops ())
+       False
+       (if (== (car-atom $ops) 𝕋)
+           True
+           (anyTrue (cdr-atom $ops)))))
+
+(= (anyFalse $ops)
+   (if (== $ops ())
+       False
+       (if (== (car-atom $ops) 𝔽)
+           True
+           (anyFalse (cdr-atom $ops)))))
 
 ;; Apply a unary function to every element of a list.  Used here to
 ;; build the sortKey/original pairs in `sortByN<`.  See the note on

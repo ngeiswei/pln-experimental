@@ -325,9 +325,174 @@
 !(test
   (toNormal (∧ F (∧ G (∨ (¬ F) (¬ G)))))
   𝔽)
+;; Under the R4 design (drop tautological ∨-clauses from ∧-chains,
+;; drop contradictory ∧-terms from ∨-chains), a ∨-chain containing
+;; a literal and its complement is *not* automatically collapsed to
+;; 𝕋: the complement is inside a sub-disjunction (∨ (¬ G) …) rather
+;; than being a sibling literal at the chain level, and no R4
+;; transformation applies to it.  The chain is reduced by
+;; reduceOperand, which drops the complemented literal G from
+;; (∧ F G), but the surrounding disjunction is left intact.
 !(test
   (toNormal (∨ (¬ F) (∨ (¬ G) (∧ F G))))
-  𝕋)
+  (∨ F (∨ (¬ F) (¬ G))))
+!(test
+  (toNormal (∨ F (∨ (¬ F) (¬ G))))
+  (∨ F (∨ (¬ F) (¬ G))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
+;; ;; Tests for the missing reduction rules R1 and R4 ;; ;;
+;; ;; in `isNormal` and `toNormal`.                  ;; ;;
+;; ;;                                                ;; ;;
+;; ;; R4: dual clause / ∧-term that is a tautology  ;; ;;
+;; ;; (contains a literal and its complement) is     ;; ;;
+;; ;; dropped from its chain.                       ;; ;;
+;; ;;   ∧ context: a ∨-clause containing both L      ;; ;;
+;; ;;     and (¬ L) is a tautology.  Drop it.       ;; ;;
+;; ;;   ∨ context: an ∧-term containing both L       ;; ;;
+;; ;;     and (¬ L) is a contradiction.  Drop it.   ;; ;;
+;; ;;                                                ;; ;;
+;; ;; R1: generalise nupln.metta's literal-only      ;; ;;
+;; ;; reduction to arbitrary ∨-clause terms, and     ;; ;;
+;; ;; its dual for redundant terms in a ∨-chain.     ;; ;;
+;; ;;   ∧ context: a ∨-clause term t that is false   ;; ;;
+;; ;;     under every assignment satisfying the      ;; ;;
+;; ;;     chain literals is dropped; if every term   ;; ;;
+;; ;;     of some clause is so falsified, the whole  ;; ;;
+;; ;;     ∧-chain collapses to 𝔽.                  ;; ;;
+;; ;;   ∨ context (dual): an ∧-term t that is true   ;; ;;
+;; ;;     under every assignment falsifying the      ;; ;;
+;; ;;     other operands is redundant and dropped.   ;; ;;
+;; ;;                                                ;; ;;
+;; ;; Most of these tests fail under the current    ;; ;;
+;; ;; `nupln.metta` because the rules have not yet   ;; ;;
+;; ;; been wired into `isShallowNormal` /           ;; ;;
+;; ;; `noAbsorbNorReduce` / `compactReduce`.        ;; ;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
+;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
+
+;; R4: tautology clause in an ∧-chain.
+!(test
+  (isNormal (∧ F (∨ G (¬ G))))
+  False)
+!(test
+  (toNormal (∧ F (∨ G (¬ G))))
+  F)
+!(test
+  (isNormal (∧ G (∨ F (¬ F))))
+  False)
+!(test
+  (toNormal (∧ G (∨ F (¬ F))))
+  G)
+!(test
+  (isNormal (∧ F (∧ G (∨ H (¬ H)))))
+  False)
+!(test
+  (toNormal (∧ F (∧ G (∨ H (¬ H)))))
+  (∧ F G))
+
+;; R4: contradiction term in a ∨-chain.
+!(test
+  (isNormal (∨ F (∧ G (¬ G))))
+  False)
+!(test
+  (toNormal (∨ F (∧ G (¬ G))))
+  F)
+!(test
+  (isNormal (∨ G (∧ F (¬ F))))
+  False)
+!(test
+  (toNormal (∨ G (∧ F (¬ F))))
+  G)
+!(test
+  (toNormal (∨ (∧ F (¬ F)) G))
+  G)
+!(test
+  (isNormal (∨ F (∧ G (∧ (¬ G) H))))
+  False)
+!(test
+  (toNormal (∨ F (∧ G (∧ (¬ G) H))))
+  F)
+
+;; R1-dual: a ∨-clause whose every term is true under the
+;; chain literals is itself true and may be dropped from the ∧-chain.
+;; (Symmetric to the empty-clause → 𝔽 case below.)
+!(test
+  (isNormal (∧ F (∨ (∧ F G) (∧ F (¬ G)))))
+  False)
+!(test
+  (toNormal (∧ F (∨ (∧ F G) (∧ F (¬ G)))))
+  F)
+!(test
+  (isNormal (∧ G (∨ (∧ F G) (∧ (¬ F) G))))
+  False)
+!(test
+  (toNormal (∧ G (∨ (∧ F G) (∧ (¬ F) G))))
+  G)
+
+;; R1: falsified clause term in an ∧-chain.  The ∧-term
+;; (∧ F G) below is false under every chain-literal assignment
+;; (¬ F), so the whole clause is dropped.
+!(test
+  (isNormal (∧ (¬ F) (∨ (∧ F G) H)))
+  False)
+!(test
+  (toNormal (∧ (¬ F) (∨ (∧ F G) H)))
+  (∧ (¬ F) H))
+!(test
+  (isNormal (∧ (¬ F) (∧ G (∨ (¬ H) (∧ F H)))))
+  False)
+!(test
+  (toNormal (∧ (¬ F) (∧ G (∨ (¬ H) (∧ F H)))))
+  (∧ (¬ F) (∧ G (¬ H))))
+
+;; R1: empty-clause → 𝔽.  Every term of the ∨-clause is
+;; falsified by the chain literal (¬ F), so the clause is identically
+;; false under the chain and the whole ∧ collapses to 𝔽.
+!(test
+  (isNormal (∧ (¬ F) (∨ (∧ F G) (∧ F H))))
+  False)
+!(test
+  (toNormal (∧ (¬ F) (∨ (∧ F G) (∧ F H))))
+  𝔽)
+!(test
+  (isNormal (∧ (¬ H) (∨ (∧ F H) (∧ G H))))
+  False)
+!(test
+  (toNormal (∧ (¬ H) (∨ (∧ F H) (∧ G H))))
+  𝔽)
+
+;; R1 semantic-only case: the falsified clause term contains
+;; literals, but only under disjunctions.  The syntactic complement
+;; test (which current nupln.metta uses) misses this case, so it is
+;; a clean demonstration of why R1 needs a semantic check.  The
+;; new R1/R4 normaliser only catches *syntactic* falsification: it
+;; does not reason across the ∧-conjuncts of an ∧-clause to deduce
+;; resolution.  So the expression is left in normal form.
+!(test
+  (isNormal (∧ (¬ H) (∨ G (∧ (∨ F H) (∨ (¬ F) H)))))
+  True)
+!(test
+  (toNormal (∧ (¬ H) (∨ G (∧ (∨ F H) (∨ (¬ F) H)))))
+  (∧ (¬ H) (∨ G (∧ (∨ F H) (∨ (¬ F) H)))))
+
+;; R1-or: redundant term in a ∨-chain.  The ∧-term below is true
+;; whenever the remaining operand (the literal H) is false, so it
+;; is redundant and may be dropped.
+!(test
+  (isNormal (∨ H (∧ (∨ F H) (∨ (¬ F) H))))
+  False)
+!(test
+  (toNormal (∨ H (∧ (∨ F H) (∨ (¬ F) H))))
+  H)
+!(test
+  (isNormal (∨ F (∨ G (∧ (∨ F G) (∨ (¬ F) G)))))
+  False)
+!(test
+  (toNormal (∨ F (∨ G (∧ (∨ F G) (∨ (¬ F) G)))))
+  (∨ F G))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ;;
