@@ -68,16 +68,21 @@
 ;;
 ;;   being True with x sampled from its domain according to its prior.
 ;;
-;; * ∧: a -> a -> a, to build the point-wise conjunction of two
-;;   predicates.
+;; * TTrue: a -> Bool, primitive predicate that returns only True.
 ;;
-;; * ∨: a -> a -> a, to build the point-wise disjunction of two
-;;   predicates.
+;; * FFalse: a -> Bool, primitive predicate that returns only False.
 ;;
-;; * ¬: a -> a, to build the point-wise negation of a predicate.
+;; * ∧: (a -> Bool) -> (a -> Bool) -> (a -> Bool), to build the
+;;      point-wise conjunction of two predicates.
 ;;
-;; * ?: a -> a -> a -> a, to build the point-wise trinary conditional
-;;   of three predicates.
+;; * ∨: (a -> Bool) -> (a -> Bool) -> (a -> Bool), to build the
+;;      point-wise disjunction of two predicates.
+;;
+;; * ¬: (a -> Bool) -> (a -> Bool), to build the point-wise negation
+;;      of a predicate.
+;;
+;; * ?: (a -> Bool) -> (a -> Bool) -> (a -> Bool) -> (a -> Bool), to
+;;      build the point-wise trinary conditional of three predicates.
 ;;
 ;; * ∀: TODO
 ;;
