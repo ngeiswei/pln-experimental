@@ -372,8 +372,12 @@
              (;; Nullary application
               (($f) True)
               ;; Unary application
-              ;; Like in MOSES, ¬ must be pushed to the leaves
-              ((¬ $g) (not (is-expr $g)))
+              ;; Like in MOSES, ¬ must be pushed to the leaves.
+              ;; ¬ 𝕋 and ¬ 𝔽 are not in normal form either, since
+              ;; they normalize to 𝔽 and 𝕋 respectively.
+              ((¬ $g) (if (or (== $g 𝕋) (== $g 𝔽))
+                          False
+                          (not (is-expr $g))))
               ;; Binary application
               ((∧ $g $h)
                ;; Must be in left associative form, with sorted and
@@ -434,6 +438,7 @@
 ;;
 ;; Note also that (¬ g) is normalized by normalizing g.  If g reduces
 ;; to a negation, the two ¬ cancel out (double negation elimination).
+;; If g is the constant 𝕋 or 𝔽, the result is 𝔽 or 𝕋 respectively.
 ;; Inputs that wrap a non literal in ¬ (like (¬ (∧ F G))) are left as
 ;; is, since pushing negation in is a separate transformation.
 (= (toNormal $x)
@@ -443,12 +448,18 @@
           (($f) $x)
           ;; Negation.  Recursively normalize the argument; if the
           ;; argument reduces to another negation, drop the outer ¬
-          ;; to eliminate double negation.  Otherwise keep the ¬.
+          ;; to eliminate double negation.  If the argument is 𝕋 or
+          ;; 𝔽, negate them to 𝔽 or 𝕋 respectively.  Otherwise keep
+          ;; the ¬.
           ((¬ $g)
-           (let $inner (toNormal $g)
-             (if (isNegation $inner)
-                 (getFstArg $inner)
-                 (¬ $inner))))
+           (if (== $g 𝕋)
+               𝔽
+               (if (== $g 𝔽)
+                   𝕋
+                   (let $inner (toNormal $g)
+                     (if (isNegation $inner)
+                         (getFstArg $inner)
+                         (¬ $inner))))))
           ;; Conjunction: flatten the ∧ chain across the two
           ;; (already-normalized) arguments, then either collapse to
           ;; 𝔽 if a literal and its complement are both present (a

@@ -131,6 +131,12 @@
   (isNormal F)
   True)
 !(test
+  (isNormal (¬ 𝕋))
+  False)
+!(test
+  (isNormal (¬ 𝔽))
+  False)
+!(test
   (isNormal (¬ F))
   True)
 !(test
@@ -248,6 +254,12 @@
   True)
 
 ;; Test toNormal
+!(test
+  (toNormal (¬ 𝕋))
+  𝔽)
+!(test
+  (toNormal (¬ 𝔽))
+  𝕋)
 !(test
   (toNormal (∧ F F))
   F)
