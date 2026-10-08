@@ -87,6 +87,13 @@ chainer unchanged.  In this case the code simplifies to:
 
 nuPLN versions organized in git tags.
 
+- nupln-v0.2:
+  - Output updated control containing remaining size and proof
+    budgets instead of the size of the solution.
+  - Improved reduction rules.
+  - Report on clause ordering.
+  - Add file containing useful prompts.
+
 - nupln-v0.1:
   - Specialized backward chainer for nuPLN.
   - Only boolean truth values.
