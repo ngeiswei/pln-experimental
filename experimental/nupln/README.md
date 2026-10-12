@@ -9,6 +9,19 @@ language.  For now we start with a language with no variable like
 [Predicate Functor Logic)(https://en.wikipedia.org/wiki/Predicate_functor_logic)
 enriched with random sampling functions.
 
+## Normal Forms
+
+Beside ENF, we could explore
+[ANF](https://en.wikipedia.org/wiki/Algebraic_normal_form).  Like
+[CNF](https://en.wikipedia.org/wiki/Conjunctive_normal_form) or
+[DNF](https://en.wikipedia.org/wiki/Disjunctive_normal_form), ANF has
+the disavantage of having a flattened structured, unlike ENF
+synthesizing this form is relatively trivial though.
+
+If we stick to ENF we need a more efficient way to synthesize
+expression, maybe [Karnaugh
+map](https://en.wikipedia.org/wiki/Karnaugh_map) could be used.
+
 ## Inference Control
 
 The general idea of inference control is to modulate the recursive
