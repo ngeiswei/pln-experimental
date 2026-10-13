@@ -486,3 +486,26 @@ thought.  It's late for me and my mind start to get easily confused so
 many finish your current experiment, it is very likely to fail but
 let's see, and then we can try this less general but still valid idea
 later.
+
+## Implement toNormal based on Karnaugh map
+
+## Replace (≞ (→ (⊙ 0) (∧ F G)) ⊤) by Evaluation
+
+In @nupln.metta, @test_nupln.metta and @test_parity.metta, could you
+replace the notation
+
+```
+(≞ (→ (⊙ INPUT) FUNCTION) RESULT)
+```
+
+by
+
+```
+(≗ FUNCTION INPUT RESULT)
+```
+
+all over these files?  If you need to update comments, simply says
+that `(≗ FUNCTION INPUT RESULT)` means that at input INPUT, function
+FUNCTION has been observed to have result RESULT.  The unicode
+character `≗` has been chosen because the little circle above the
+equal sign looks like the letter `o` for observe.
