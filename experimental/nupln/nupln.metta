@@ -215,6 +215,24 @@
           ($else False)))
        False))
 
+;;;;;;;;;;;;;;
+;; isClosed ;;
+;;;;;;;;;;;;;;
+
+;; Return True iff $term is closed, that does not contain free
+;; variable.
+(: isClosed (-> Atom Bool))
+(= (isClosed $term)
+   (case (get-metatype $term)
+     ((Variable False)
+      (Symbol True)
+      (Grounded True)
+      (Expression (if (== $term ())
+                      True
+                      (let* (($head (car-atom $term))
+                             ($tail (cdr-atom $term)))
+                        (and (isClosed $head) (isClosed $tail))))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Custom Syntactic Comparison ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
