@@ -31,7 +31,7 @@
 
 ;; Number of input features (i.e. bits).  Features are named F1, F2,
 ;; ..., FN, and the domain is {0, 1, ..., 2^N - 1}.
-(= (paritySize) 2)
+(= (paritySize) 3)
 
 ;; Enable memoization.  Beware: memoization tends to hurt
 ;; performances.  It can be convenient for debudding though.  Also be
@@ -96,10 +96,10 @@
 
 ;; Add the truth value atom for Fi at domain point x.
 (= (addTruthAtom $kb $i $x)
-   (let* (($tv (bitValueOfPred $i $x))
-          ($name (truthName $i $x $tv))
+   (let* (($y (bitValueOfPred $i $x))
+          ($name (truthName $i $x $y))
           ($pred (predName $i)))
-     (add-atom $kb (: $name (≞ (→ (⊙ $x) $pred) $tv)))))
+     (add-atom $kb (: $name (≗ $pred $x $y)))))
 
 ;; For Fi, add truth value atoms at all x ∈ {0, ..., 2^N - 1}.
 (= (addTruthAtomsForPred $kb $i $n $x)
@@ -127,13 +127,13 @@
 
 ;; Build the left-leaning nested `,` of parity evaluations.
 ;; (buildParityQuery-rec $x $n $pred) =
-;;   when x = 2^n - 1: (≞ (→ (⊙ x) $pred) (parityBit x n))
-;;   otherwise:        (, (≞ (→ (⊙ x) $pred) (parityBit x n))
+;;   when x = 2^n - 1: (≗ $pred x (parityBit x n))
+;;   otherwise:        (, (≗ $pred x (parityBit x n))
 ;;                         (buildParityQuery-rec (+ x 1) n $pred))
 (= (buildParityQuery-rec $x $n $pred)
    (if (== $x (#- (pow-math 2 $n) 1))
-       (≞ (→ (⊙ $x) $pred) (parityBit $x $n))
-       (, (≞ (→ (⊙ $x) $pred) (parityBit $x $n))
+       (≗ $pred $x (parityBit $x $n))
+       (, (≗ $pred $x (parityBit $x $n))
           (buildParityQuery-rec (#+ $x 1) $n $pred))))
 
 ;; Like above but without needed to pass $pred.
@@ -162,21 +162,38 @@
 ;; evaluation matches the parity truth table.  Reasonable choices for
 ;; size and depth budgets are:
 ;;
-;; * N=1: (MkControl 15 4) with solution:
+;; * N=1: (MkControl 5 2) with solution:
 ;;
-;;   (¬ F1)
+;;   - (¬ F1)
 ;;
-;; * N=2: (MkControl 135 6) with solutions:
+;; * N=2: (MkControl 25 4) with solutions:
 ;;
-;;   (∨ (∧ F1 F2) (∧ (¬ F1) (¬ F2)))
-;;   (∧ (∨ F1 (¬ F2)) (∨ (¬ F1) F2))
+;;   - (∨ (∧ F1 F2) (∧ (¬ F1) (¬ F2)))
+;;   - (∧ (∨ F1 (¬ F2)) (∨ (¬ F1) F2))
 ;;
-;; * N=3: (MkControl 1002 9) with solution.  Note that without any
+;; * N=3: (MkControl 99 7) with solution.  Note that without any
 ;;        balancing over the product the size budget used to be 851.
 ;;
-;;   (∧ (∨ F1 (∨ (¬ F2) F3))
-;;      (∨ (∧ F1 (∧ (¬ F2) F3))
-;;         (∨ (∧ (¬ F1) F2)
-;;            (∧ (¬ F3) (∨ (¬ F1) F2)))))
+;;   - (∧ (∨ F1 (∨ (¬ F2) F3))
+;;        (∨ (∧ F1 (∧ (¬ F2) F3))
+;;           (∨ (∧ (¬ F1) F2)
+;;              (∧ (¬ F3) (∨ (¬ F1) F2)))))
 !(once
-  (nupln_bc &kb (MkControl 135 6) (buildParityQuery (paritySize))))
+  (nupln_bc &kb (MkControl 99 7) (buildParityQuery (paritySize))))
+
+;; Used for testing
+;;
+;; !(let $cnd (∧ (∨ F1 (∨ (¬ F2) F3))
+;;               (∨ (∧ F1 (∧ (¬ F2) F3))
+;;                  (∨ (∧ (¬ F1) F2)
+;;                     (∧ (¬ F3) (∨ (¬ F1) F2)))))
+;;    (once
+;;     (nupln_bc &kb (MkControl 99 7)
+;;               (: $_0 (, (≗ $cnd 0 ⊤)
+;;                      (, (≗ $cnd 1 ⊥)
+;;                      (, (≗ $cnd 2 ⊥)
+;;                      (, (≗ $cnd 3 ⊤)
+;;                      (, (≗ $cnd 4 ⊥)
+;;                      (, (≗ $cnd 5 ⊤)
+;;                      (, (≗ $cnd 6 ⊤)
+;;                         (≗ $cnd 7 ⊥))))))))))))

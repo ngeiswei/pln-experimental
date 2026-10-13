@@ -1007,7 +1007,7 @@
 ;; check by enforcing a function or a predicate results in producing
 ;; weird things like
 ;;
-;; (: (∧ g0t g0t) (≞ (→ (⊙ 0) G) ⊤))
+;; (: (∧ g0t g0t) (≗ G 0 ⊤))
 ;;
 ;; thus why we need to be more specific.
 ;;
@@ -1104,182 +1104,172 @@
              (, (MkControl $fsize $fdepth) (: (¬ $f) (-> $a Bool)))))))
    ;; )
 
-;; Type check singleton construction, ⊙.  If $x is of type $a, then
-;; (⊙ $x) is of type $a -> Bool.
-(= (nupln_bc $kb (MkControl $size $depth) (: (⊙ $x) (-> $a Bool)))
-   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (⊙ $x) (-> $a Bool)))
-   ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ⊙ plus the proof of the premise.  The premise is
-   ;; charged the unit of ⊙ and the conclusion returns the remaining
-   ;; budget of the premise.
-   (if (and (<= 2 $size) (<= 2 $depth))
-       (let (, (MkControl $xsize $xdepth) (: $x $a))
-         (nupln_bc $kb (MkControl (- $size 1) (- $depth 1)) (: $x $a))
-         (, (MkControl $xsize $xdepth) (: (⊙ $x) (-> $a Bool))))
-       (empty)))
-   ;; )
+;; ;; TODO: re-enable when needed
+;; ;;
+;; ;; Type check singleton construction, ⊙.  If $x is of type $a, then
+;; ;; (⊙ $x) is of type $a -> Bool.
+;; (= (nupln_bc $kb (MkControl $size $depth) (: (⊙ $x) (-> $a Bool)))
+;;    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (⊙ $x) (-> $a Bool)))
+;;    ;; The size budget must cover the whole proof: 1 for the
+;;    ;; introduction of ⊙ plus the proof of the premise.  The premise is
+;;    ;; charged the unit of ⊙ and the conclusion returns the remaining
+;;    ;; budget of the premise.
+;;    (if (and (<= 2 $size) (<= 2 $depth))
+;;        (let (, (MkControl $xsize $xdepth) (: $x $a))
+;;          (nupln_bc $kb (MkControl (- $size 1) (- $depth 1)) (: $x $a))
+;;          (, (MkControl $xsize $xdepth) (: (⊙ $x) (-> $a Bool))))
+;;        (empty)))
+;;    ;; )
 
-;; Type check implication, →.  For now it is assumed that implication
-;; can only be established between predicates of identical type.  For
-;;
-;; (→ F G)
-;;
-;; to be well typed, F and G must be of the same type.  Also the type
-;; of an implication is for now labelled as a (CPred (-> $a Bool))
-;; which stands for a conditioned predicate.  This may change in the
-;; future though.
-(= (nupln_bc $kb (MkControl $size $depth) (: (→ $f $g) (CPred (-> $a Bool))))
-   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (→ $f $g) Statement))
-   ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of → plus the proofs of the premises.  The first
-   ;; premise is charged the unit of →, the second premise inherits
-   ;; the remaining budget of the first one, and the conclusion
-   ;; returns the remaining budget of the second premise.
-   (if (and (<= 3 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check that $f is or type $a
-              ((, (MkControl $fsize $fdepth) (: $f (-> $a Bool)))
-               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: $f (-> $a Bool))))
-              ;; Recurse on premise 2 to check that $g is or type $a
-              ((, (MkControl $gsize $gdepth) (: $g (-> $a Bool)))
-               (nupln_bc $kb (MkControl $fsize (- $depth 1))
-                         (: $g (-> $a Bool)))))
-         (, (MkControl $gsize (min $fdepth $gdepth))
-            (: (→ $f $g) (CPred (-> $a Bool)))))
-       (empty)))
-   ;; )
+;; ;; TODO: re-enable when needed
+;; ;;
+;; ;; Type check implication, →.  For now it is assumed that implication
+;; ;; can only be established between predicates of identical type.  For
+;; ;;
+;; ;; (→ F G)
+;; ;;
+;; ;; to be well typed, F and G must be of the same type.  Also the type
+;; ;; of an implication is for now labelled as a (CPred (-> $a Bool))
+;; ;; which stands for a conditioned predicate.  This may change in the
+;; ;; future though.
+;; (= (nupln_bc $kb (MkControl $size $depth) (: (→ $f $g) (CPred (-> $a Bool))))
+;;    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (→ $f $g) Statement))
+;;    ;; The size budget must cover the whole proof: 1 for the
+;;    ;; introduction of → plus the proofs of the premises.  The first
+;;    ;; premise is charged the unit of →, the second premise inherits
+;;    ;; the remaining budget of the first one, and the conclusion
+;;    ;; returns the remaining budget of the second premise.
+;;    (if (and (<= 3 $size) (<= 2 $depth))
+;;        (let* (;; Recurse on premise 1 to check that $f is or type $a
+;;               ((, (MkControl $fsize $fdepth) (: $f (-> $a Bool)))
+;;                (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
+;;                          (: $f (-> $a Bool))))
+;;               ;; Recurse on premise 2 to check that $g is or type $a
+;;               ((, (MkControl $gsize $gdepth) (: $g (-> $a Bool)))
+;;                (nupln_bc $kb (MkControl $fsize (- $depth 1))
+;;                          (: $g (-> $a Bool)))))
+;;          (, (MkControl $gsize (min $fdepth $gdepth))
+;;             (: (→ $f $g) (CPred (-> $a Bool)))))
+;;        (empty)))
+;;    ;; )
 
 ;; Conjunction evaluation to ⊤.  The query
 ;;
-;; (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)
+;; (≗ (∧ $f $g) $x ⊤)
 ;;
 ;; means that ((∧ $f $g) $x) evaluates to True.  The premises are that
 ;; both ($f $x) and ($g $x) evaluate to True.
 ;;
 ;; `cet` stands for conjunction evaluate to true.
 ;;
-;; Note that (→ (⊙ $x) (∧ $f $g)) is placed as proof argument for full
-;; transparancy since it cost size and depth budgets.
 (= (nupln_bc $kb (MkControl $size $depth)
-             (: (cet (→ (⊙ $x) (∧ $f $g)) $fp $gp)
-                (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)))
+             (: (cet $fp $gp) (≗ (∧ $f $g) $x ⊤)))
    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
-   ;;            (: (cet (→ (⊙ $x) (∧ $f $g)) $fp $gp)
-   ;;               (≞ (→ (⊙ $x) (∧ $f $g)) ⊤)))
+   ;;            (: (cet $fp $gp) (≗ (∧ $f $g) $x ⊤)))
    ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ∧ plus the type check of (→ (⊙ $x) (∧ $f $g))
-   ;; and the evaluations of (→ (⊙ $x) $f) and (→ (⊙ $x) $g).  The
-   ;; first premise is charged the unit of ∧, each subsequent premise
-   ;; inherits the remaining budget of the previous one, and the
-   ;; conclusion returns the remaining budget of the last premise.
-   (if (and (<= 4 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check the correctness of the
-              ;; type of (→ (⊙ $x) (∧ $f $g))
-              ((, (MkControl $asize $adepth) (: (→ (⊙ $x) (∧ $f $g)) $a))
+   ;; introduction of ∧ plus the evaluations of $f and $g.  The first
+   ;; premise is charged the unit of ∧, the second premise inherits
+   ;; the remaining budget of the first one, and the conclusion
+   ;; returns the remaining budget of the last premise.
+   (if (and (<= 3 $size) (<= 2 $depth))
+       (let* (;; Recurse on premise 1 to make sure that $f evaluates
+              ;; to true on $x
+              ((, (MkControl $fsize $fdepth) (: $fp (≗ $f $x ⊤)))
                (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: (→ (⊙ $x) (∧ $f $g)) $a)))
-              ;; Recurse on premise 2 to make sure that $f evaluates
+                         (: $fp (≗ $f $x ⊤))))
+              ;; Make sure that $f is not a conjunction which is
+              ;; required for (∧ $f $g) to be in normal form.
+              (False (isConjunction $f))
+              ;; Recurse on premise 2 to make sure that $g evaluates
               ;; to true on $x
-              ((, (MkControl $fsize $fdepth) (: $fp (≞ (→ (⊙ $x) $f) ⊤)))
-               (nupln_bc $kb (MkControl $asize (- $depth 1))
-                         (: $fp (≞ (→ (⊙ $x) $f) ⊤))))
-              ;; Recurse on premise 3 to make sure that $g evaluates
-              ;; to true on $x
-              ((, (MkControl $gsize $gdepth) (: $gp (≞ (→ (⊙ $x) $g) ⊤)))
+              ((, (MkControl $gsize $gdepth) (: $gp (≗ $g $x ⊤)))
                (nupln_bc $kb (MkControl $fsize (- $depth 1))
-                         (: $gp (≞ (→ (⊙ $x) $g) ⊤)))))
+                         (: $gp (≗ $g $x ⊤))))
+              ;; Make sure that (∧ $f $g) is in normal form, a shallow
+              ;; test is used because $f and $g are assumed to be
+              ;; already be in normal form.
+              (True (isShallowNormal (∧ $f $g))))
          ;; Build conclusion
-         (, (MkControl $gsize (min $adepth (min $fdepth $gdepth)))
-            (: (cet (→ (⊙ $x) (∧ $f $g)) $fp $gp)
-               (≞ (→ (⊙ $x) (∧ $f $g)) ⊤))))
+         (, (MkControl $gsize (min $fdepth $gdepth))
+            (: (cet $fp $gp) (≗ (∧ $f $g) $x ⊤))))
        (empty)))
    ;; )
 
 ;; Conjunction evaluation to ⊥, left.  The query
 ;;
-;; (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)
+;; (≗ (∧ $f $g) $x ⊥)
 ;;
 ;; means that ((∧ $f $g) $x) evaluates to False based on $f, the left
 ;; argument.  The premise is that ($f $x) evaluates to False.
 ;;
 ;; `cefl` stands for conjunction evaluates to false from left.
 ;;
-;; Note that (→ (⊙ $x) (∧ $f $g)) is placed as proof argument for full
-;; transparancy since it cost size and depth budgets.
 (= (nupln_bc $kb (MkControl $size $depth)
-             (: (cefl (→ (⊙ $x) (∧ $f $g)) $fp)
-                (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+             (: (cefl $fp) (≗ (∧ $f $g) $x ⊥)))
    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
-   ;;            (: (cefl (→ (⊙ $x) (∧ $f $g)) $fp)
-   ;;               (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+   ;;            (: (cefl $fp) (≗ (∧ $f $g) $x ⊥)))
    ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ∧ plus the type check of (→ (⊙ $x) (∧ $f $g))
-   ;; and the evaluation of (→ (⊙ $x) $f).  The first premise is
-   ;; charged the unit of ∧, the second premise inherits the remaining
-   ;; budget of the first one, and the conclusion returns the remaining
-   ;; budget of the second premise.
-   (if (and (<= 3 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check the correctness of the
-              ;; type of (→ (⊙ $x) (∧ $f $g))
-              ((, (MkControl $asize $adepth) (: (→ (⊙ $x) (∧ $f $g)) $a))
-               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: (→ (⊙ $x) (∧ $f $g)) $a)))
-              ;; Recurse on premise 2 to make sure that $f evaluates
+   ;; introduction of ∧ plus the evaluation of $f.  The premise is
+   ;; charged the unit of ∧, and the conclusion returns the remaining
+   ;; budget of the premise.
+   (if (and (<= 2 $size) (<= 2 $depth))
+       (let* (;; Recurse on premise 1 to make sure that $f evaluates
               ;; to false on $x
-              ((, (MkControl $fsize $fdepth) (: $fp (≞ (→ (⊙ $x) $f) ⊥)))
-               (nupln_bc $kb (MkControl $asize (- $depth 1))
-                         (: $fp (≞ (→ (⊙ $x) $f) ⊥)))))
+              ((, (MkControl $fsize $fdepth) (: $fp (≗ $f $x ⊥)))
+               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
+                         (: $fp (≗ $f $x ⊥))))
+              ;; Make sure that $f is not a conjunction which is
+              ;; required for (∧ $f $g) to be in normal form.
+              (False (isConjunction $f))
+              ;; Make sure that (∧ $f $g) is in normal form, a shallow
+              ;; test is used because $f and $g are assumed to be
+              ;; already be in normal form.
+              (True (isShallowNormal (∧ $f $g))))
          ;; Build conclusion
-         (, (MkControl $fsize (min $adepth $fdepth))
-            (: (cefl (→ (⊙ $x) (∧ $f $g)) $fp)
-               (≞ (→ (⊙ $x) (∧ $f $g)) ⊥))))
+         (, (MkControl $fsize $fdepth)
+            (: (cefl $fp) (≗ (∧ $f $g) $x ⊥))))
        (empty)))
    ;; )
 
 ;; Conjunction evaluation to ⊥, right.  The query
 ;;
-;; (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)
+;; (≗ (∧ $f $g) $x ⊥)
 ;;
 ;; means that ((∧ $f $g) $x) evaluates to False based on $g, the right
 ;; argument.  The premise is that ($g $x) evaluates to False.
 ;;
 ;; `cefr` stands for conjunction evaluates to false from right.
 ;;
-;; Note that (→ (⊙ $x) (∧ $f $g)) is placed as proof argument for full
-;; transparancy since it cost size and depth budgets.
 (= (nupln_bc $kb (MkControl $size $depth)
-             (: (cefr (→ (⊙ $x) (∧ $f $g)) $gp)
-                (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+             (: (cefr $gp) (≗ (∧ $f $g) $x ⊥)))
    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
-   ;;            (: (cefr (→ (⊙ $x) (∧ $f $g)) $gp)
-   ;;               (≞ (→ (⊙ $x) (∧ $f $g)) ⊥)))
+   ;;            (: (cefr $gp) (≗ (∧ $f $g) $x ⊥)))
    ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ∧ plus the type check of (→ (⊙ $x) (∧ $f $g))
-   ;; and the evaluation of (→ (⊙ $x) $g).  The first premise is
-   ;; charged the unit of ∧, the second premise inherits the remaining
-   ;; budget of the first one, and the conclusion returns the remaining
-   ;; budget of the second premise.
-   (if (and (<= 3 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check the correctness of the
-              ;; type of (→ (⊙ $x) (∧ $f $g))
-              ((, (MkControl $asize $adepth) (: (→ (⊙ $x) (∧ $f $g)) $a))
-               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: (→ (⊙ $x) (∧ $f $g)) $a)))
-              ;; Recurse on premise 2 to make sure that $g evaluates
+   ;; introduction of ∧ plus the evaluation of $g.  The premise is
+   ;; charged the unit of ∧, and the conclusion returns the remaining
+   ;; budget of the premise.
+   (if (and (<= 2 $size) (<= 2 $depth))
+       (let* (;; Recurse on premise 1 to make sure that $g evaluates
               ;; to false on $x
-              ((, (MkControl $gsize $gdepth) (: $gp (≞ (→ (⊙ $x) $g) ⊥)))
-               (nupln_bc $kb (MkControl $asize (- $depth 1))
-                         (: $gp (≞ (→ (⊙ $x) $g) ⊥)))))
+              ((, (MkControl $gsize $gdepth) (: $gp (≗ $g $x ⊥)))
+               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
+                         (: $gp (≗ $g $x ⊥))))
+              ;; Make sure that $f is not a conjunction which is
+              ;; required for (∧ $f $g) to be in normal form.
+              (False (isConjunction $f))
+              ;; Make sure that (∧ $f $g) is in normal form, a shallow
+              ;; test is used because $f and $g are assumed to be
+              ;; already be in normal form.
+              (True (isShallowNormal (∧ $f $g))))
          ;; Build conclusion
-         (, (MkControl $gsize (min $adepth $gdepth))
-            (: (cefr (→ (⊙ $x) (∧ $f $g)) $gp)
-               (≞ (→ (⊙ $x) (∧ $f $g)) ⊥))))
+         (, (MkControl $gsize $gdepth)
+            (: (cefr $gp) (≗ (∧ $f $g) $x ⊥))))
        (empty)))
    ;; )
 
 ;; Disjunction evaluation to ⊤, left.  The query
 ;;
-;; (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)
+;; (≗ (∨ $f $g) $x ⊤)
 ;;
 ;; means that ((∨ $f $g) $x) evaluates to True because $f (the left
 ;; argument) evaluates to True.  Unlike for conjunction, the right
@@ -1288,42 +1278,37 @@
 ;;
 ;; `detl` stands for disjunction evaluates to true from left.
 ;;
-;; Note that (→ (⊙ $x) (∨ $f $g)) is placed as proof argument for full
-;; transparancy since it cost size and depth budgets.
 (= (nupln_bc $kb (MkControl $size $depth)
-             (: (detl (→ (⊙ $x) (∨ $f $g)) $fp)
-                (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+             (: (detl $fp) (≗ (∨ $f $g) $x ⊤)))
    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
-   ;;            (: (detl (→ (⊙ $x) (∨ $f $g)) $fp)
-   ;;               (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;;            (: (detl $fp) (≗ (∨ $f $g) $x ⊤)))
    ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ∨ plus the type check of (→ (⊙ $x) (∨ $f $g))
-   ;; and the evaluation of (→ (⊙ $x) $f).  The first premise is
-   ;; charged the unit of ∨, the second premise inherits the remaining
-   ;; budget of the first one, and the conclusion returns the remaining
-   ;; budget of the second premise.
-   (if (and (<= 3 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check the correctness of the
-              ;; type of (→ (⊙ $x) (∨ $f $g))
-              ((, (MkControl $asize $adepth) (: (→ (⊙ $x) (∨ $f $g)) $a))
+   ;; introduction of ∨ plus the evaluation of $f.  The premise is
+   ;; charged the unit of ∨, and the conclusion returns the remaining
+   ;; budget of the premise.  Note that no premise is required on $g,
+   ;; since True suffices for the disjunction.
+   (if (and (<= 2 $size) (<= 2 $depth))
+       (let* (;; Recurse on premise 1 to make sure that $f evaluates
+              ;; to true on $x
+              ((, (MkControl $fsize $fdepth) (: $fp (≗ $f $x ⊤)))
                (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: (→ (⊙ $x) (∨ $f $g)) $a)))
-              ;; Recurse on premise 2 to make sure that $f evaluates
-              ;; to true on $x.  Note that no premise is required on
-              ;; $g, since True suffices for the disjunction.
-              ((, (MkControl $fsize $fdepth) (: $fp (≞ (→ (⊙ $x) $f) ⊤)))
-               (nupln_bc $kb (MkControl $asize (- $depth 1))
-                         (: $fp (≞ (→ (⊙ $x) $f) ⊤)))))
+                         (: $fp (≗ $f $x ⊤))))
+              ;; Make sure that $f is not a disjunction which is
+              ;; required for (∨ $f $g) to be in normal form.
+              (False (isDisjunction $f))
+              ;; Make sure that (∨ $f $g) is in normal form, a shallow
+              ;; test is used because $f and $g are assumed to be
+              ;; already be in normal form.
+              (True (isShallowNormal (∨ $f $g))))
          ;; Build conclusion
-         (, (MkControl $fsize (min $adepth $fdepth))
-            (: (detl (→ (⊙ $x) (∨ $f $g)) $fp)
-               (≞ (→ (⊙ $x) (∨ $f $g)) ⊤))))
+         (, (MkControl $fsize $fdepth)
+            (: (detl $fp) (≗ (∨ $f $g) $x ⊤))))
        (empty)))
    ;; )
 
 ;; Disjunction evaluation to ⊤, right.  The query
 ;;
-;; (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)
+;; (≗ (∨ $f $g) $x ⊤)
 ;;
 ;; means that ((∨ $f $g) $x) evaluates to True because $g (the right
 ;; argument) evaluates to True.  Unlike for conjunction, the left
@@ -1332,42 +1317,37 @@
 ;;
 ;; `detr` stands for disjunction evaluates to true from right.
 ;;
-;; Note that (→ (⊙ $x) (∨ $f $g)) is placed as proof argument for full
-;; transparancy since it cost size and depth budgets.
 (= (nupln_bc $kb (MkControl $size $depth)
-             (: (detr (→ (⊙ $x) (∨ $f $g)) $gp)
-                (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+             (: (detr $gp) (≗ (∨ $f $g) $x ⊤)))
    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
-   ;;            (: (detr (→ (⊙ $x) (∨ $f $g)) $gp)
-   ;;               (≞ (→ (⊙ $x) (∨ $f $g)) ⊤)))
+   ;;            (: (detr $gp) (≗ (∨ $f $g) $x ⊤)))
    ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ∨ plus the type check of (→ (⊙ $x) (∨ $f $g))
-   ;; and the evaluation of (→ (⊙ $x) $g).  The first premise is
-   ;; charged the unit of ∨, the second premise inherits the remaining
-   ;; budget of the first one, and the conclusion returns the remaining
-   ;; budget of the second premise.
-   (if (and (<= 3 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check the correctness of the
-              ;; type of (→ (⊙ $x) (∨ $f $g))
-              ((, (MkControl $asize $adepth) (: (→ (⊙ $x) (∨ $f $g)) $a))
+   ;; introduction of ∨ plus the evaluation of $g.  The premise is
+   ;; charged the unit of ∨, and the conclusion returns the remaining
+   ;; budget of the premise.  Note that no premise is required on $f,
+   ;; since True suffices for the disjunction.
+   (if (and (<= 2 $size) (<= 2 $depth))
+       (let* (;; Recurse on premise 1 to make sure that $g evaluates
+              ;; to true on $x
+              ((, (MkControl $gsize $gdepth) (: $gp (≗ $g $x ⊤)))
                (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: (→ (⊙ $x) (∨ $f $g)) $a)))
-              ;; Recurse on premise 2 to make sure that $g evaluates
-              ;; to true on $x.  Note that no premise is required on
-              ;; $f, since True suffices for the disjunction.
-              ((, (MkControl $gsize $gdepth) (: $gp (≞ (→ (⊙ $x) $g) ⊤)))
-               (nupln_bc $kb (MkControl $asize (- $depth 1))
-                         (: $gp (≞ (→ (⊙ $x) $g) ⊤)))))
+                         (: $gp (≗ $g $x ⊤))))
+              ;; Make sure that $f is not a disjunction which is
+              ;; required for (∨ $f $g) to be in normal form.
+              (False (isDisjunction $f))
+              ;; Make sure that (∨ $f $g) is in normal form, a shallow
+              ;; test is used because $f and $g are assumed to be
+              ;; already be in normal form.
+              (True (isShallowNormal (∨ $f $g))))
          ;; Build conclusion
-         (, (MkControl $gsize (min $adepth $gdepth))
-            (: (detr (→ (⊙ $x) (∨ $f $g)) $gp)
-               (≞ (→ (⊙ $x) (∨ $f $g)) ⊤))))
+         (, (MkControl $gsize $gdepth)
+            (: (detr $gp) (≗ (∨ $f $g) $x ⊤))))
        (empty)))
    ;; )
 
 ;; Disjunction evaluation to ⊥.  The query
 ;;
-;; (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)
+;; (≗ (∨ $f $g) $x ⊥)
 ;;
 ;; means that ((∨ $f $g) $x) evaluates to False.  Unlike for
 ;; conjunction where the False of one operand is sufficient, for
@@ -1376,122 +1356,102 @@
 ;;
 ;; `def` stands for disjunction evaluates to false.
 ;;
-;; Note that (→ (⊙ $x) (∨ $f $g)) is placed as proof argument for full
-;; transparancy since it cost size and depth budgets.
 (= (nupln_bc $kb (MkControl $size $depth)
-             (: (def (→ (⊙ $x) (∨ $f $g)) $fp $gp)
-                (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)))
+             (: (def $fp $gp) (≗ (∨ $f $g) $x ⊥)))
    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
-   ;;            (: (def (→ (⊙ $x) (∨ $f $g)) $fp $gp)
-   ;;               (≞ (→ (⊙ $x) (∨ $f $g)) ⊥)))
+   ;;            (: (def $fp $gp) (≗ (∨ $f $g) $x ⊥)))
    ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ∨ plus the type check of (→ (⊙ $x) (∨ $f $g))
-   ;; and the evaluations of (→ (⊙ $x) $f) and (→ (⊙ $x) $g).  The
-   ;; first premise is charged the unit of ∨, each subsequent premise
-   ;; inherits the remaining budget of the previous one, and the
-   ;; conclusion returns the remaining budget of the last premise.
-   (if (and (<= 4 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check the correctness of the
-              ;; type of (→ (⊙ $x) (∨ $f $g))
-              ((, (MkControl $asize $adepth) (: (→ (⊙ $x) (∨ $f $g)) $a))
+   ;; introduction of ∨ plus the evaluations of $f and $g.  The first
+   ;; premise is charged the unit of ∨, the second premise inherits
+   ;; the remaining budget of the first one, and the conclusion
+   ;; returns the remaining budget of the last premise.
+   (if (and (<= 3 $size) (<= 2 $depth))
+       (let* (;; Recurse on premise 1 to make sure that $f evaluates
+              ;; to false on $x
+              ((, (MkControl $fsize $fdepth) (: $fp (≗ $f $x ⊥)))
                (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: (→ (⊙ $x) (∨ $f $g)) $a)))
-              ;; Recurse on premise 2 to make sure that $f evaluates
+                         (: $fp (≗ $f $x ⊥))))
+              ;; Make sure that $f is not a disjunction which is
+              ;; required for (∨ $f $g) to be in normal form.
+              (False (isDisjunction $f))
+              ;; Recurse on premise 2 to make sure that $g evaluates
               ;; to false on $x
-              ((, (MkControl $fsize $fdepth) (: $fp (≞ (→ (⊙ $x) $f) ⊥)))
-               (nupln_bc $kb (MkControl $asize (- $depth 1))
-                         (: $fp (≞ (→ (⊙ $x) $f) ⊥))))
-              ;; Recurse on premise 3 to make sure that $g evaluates
-              ;; to false on $x
-              ((, (MkControl $gsize $gdepth) (: $gp (≞ (→ (⊙ $x) $g) ⊥)))
+              ((, (MkControl $gsize $gdepth) (: $gp (≗ $g $x ⊥)))
                (nupln_bc $kb (MkControl $fsize (- $depth 1))
-                         (: $gp (≞ (→ (⊙ $x) $g) ⊥)))))
+                         (: $gp (≗ $g $x ⊥))))
+              ;; Make sure that (∨ $f $g) is in normal form, a shallow
+              ;; test is used because $f and $g are assumed to be
+              ;; already be in normal form.
+              (True (isShallowNormal (∨ $f $g))))
          ;; Build conclusion
-         (, (MkControl $gsize (min $adepth (min $fdepth $gdepth)))
-            (: (def (→ (⊙ $x) (∨ $f $g)) $fp $gp)
-               (≞ (→ (⊙ $x) (∨ $f $g)) ⊥))))
+         (, (MkControl $gsize (min $fdepth $gdepth))
+            (: (def $fp $gp) (≗ (∨ $f $g) $x ⊥))))
        (empty)))
    ;; )
 
 ;; Negation evaluation to ⊤.  The query
 ;;
-;; (≞ (→ (⊙ $x) (¬ $f)) ⊤)
+;; (≗ (¬ $f) $x ⊤)
 ;;
 ;; means that ((¬ $f) $x) evaluates to True.  This is the case when
 ;; ($f $x) evaluates to False.
 ;;
 ;; `net` stands for negation evaluates to true.
 ;;
-;; Note that (→ (⊙ $x) (¬ $f)) is placed as proof argument for full
-;; transparancy since it cost size and depth budgets.
 (= (nupln_bc $kb (MkControl $size $depth)
-             (: (net (→ (⊙ $x) (¬ $f)) $fp)
-                (≞ (→ (⊙ $x) (¬ $f)) ⊤)))
+             (: (net $fp) (≗ (¬ $f) $x ⊤)))
    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
-   ;;            (: (net (→ (⊙ $x) (¬ $f)) $fp)
-   ;;               (≞ (→ (⊙ $x) (¬ $f)) ⊤)))
+   ;;            (: (net $fp) (≗ (¬ $f) $x ⊤)))
    ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ¬ plus the type check of (→ (⊙ $x) (¬ $f))
-   ;; and the evaluation of (→ (⊙ $x) $f).  The first premise is
-   ;; charged the unit of ¬, the second premise inherits the remaining
-   ;; budget of the first one, and the conclusion returns the remaining
-   ;; budget of the second premise.
-   (if (and (<= 3 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check the correctness of the
-              ;; type of (→ (⊙ $x) (¬ $f))
-              ((, (MkControl $asize $adepth) (: (→ (⊙ $x) (¬ $f)) $a))
-               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: (→ (⊙ $x) (¬ $f)) $a)))
-              ;; Recurse on premise 2 to make sure that $f evaluates
+   ;; introduction of ¬ plus the evaluation of $f.  The premise is
+   ;; charged the unit of ¬, and the conclusion returns the remaining
+   ;; budget of the premise.
+   (if (and (<= 2 $size) (<= 2 $depth))
+       (let* (;; Recurse on premise 1 to make sure that $f evaluates
               ;; to false on $x
-              ((, (MkControl $fsize $fdepth) (: $fp (≞ (→ (⊙ $x) $f) ⊥)))
-               (nupln_bc $kb (MkControl $asize (- $depth 1))
-                         (: $fp (≞ (→ (⊙ $x) $f) ⊥)))))
+              ((, (MkControl $fsize $fdepth) (: $fp (≗ $f $x ⊥)))
+               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
+                         (: $fp (≗ $f $x ⊥))))
+              ;; Make sure that (¬ $f) is in normal form, a shallow
+              ;; test is used because $f is assumed to be already in
+              ;; normal form.
+              (True (isShallowNormal (¬ $f))))
          ;; Build conclusion
-         (, (MkControl $fsize (min $adepth $fdepth))
-            (: (net (→ (⊙ $x) (¬ $f)) $fp)
-               (≞ (→ (⊙ $x) (¬ $f)) ⊤))))
+         (, (MkControl $fsize $fdepth)
+            (: (net $fp) (≗ (¬ $f) $x ⊤))))
        (empty)))
    ;; )
 
 ;; Negation evaluation to ⊥.  The query
 ;;
-;; (≞ (→ (⊙ $x) (¬ $f)) ⊥)
+;; (≗ (¬ $f) $x ⊥)
 ;;
 ;; means that ((¬ $f) $x) evaluates to False.  This is the case when
 ;; ($f $x) evaluates to True.
 ;;
 ;; `nef` stands for negation evaluates to false.
 ;;
-;; Note that (→ (⊙ $x) (¬ $f)) is placed as proof argument for full
-;; transparancy since it cost size and depth budgets.
 (= (nupln_bc $kb (MkControl $size $depth)
-             (: (nef (→ (⊙ $x) (¬ $f)) $fp)
-                (≞ (→ (⊙ $x) (¬ $f)) ⊥)))
+             (: (nef $fp) (≗ (¬ $f) $x ⊥)))
    ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth)
-   ;;            (: (nef (→ (⊙ $x) (¬ $f)) $fp)
-   ;;               (≞ (→ (⊙ $x) (¬ $f)) ⊥)))
+   ;;            (: (nef $fp) (≗ (¬ $f) $x ⊥)))
    ;; The size budget must cover the whole proof: 1 for the
-   ;; introduction of ¬ plus the type check of (→ (⊙ $x) (¬ $f))
-   ;; and the evaluation of (→ (⊙ $x) $f).  The first premise is
-   ;; charged the unit of ¬, the second premise inherits the remaining
-   ;; budget of the first one, and the conclusion returns the remaining
-   ;; budget of the second premise.
-   (if (and (<= 3 $size) (<= 2 $depth))
-       (let* (;; Recurse on premise 1 to check the correctness of the
-              ;; type of (→ (⊙ $x) (¬ $f))
-              ((, (MkControl $asize $adepth) (: (→ (⊙ $x) (¬ $f)) $a))
-               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
-                         (: (→ (⊙ $x) (¬ $f)) $a)))
-              ;; Recurse on premise 2 to make sure that $f evaluates
+   ;; introduction of ¬ plus the evaluation of $f.  The premise is
+   ;; charged the unit of ¬, and the conclusion returns the remaining
+   ;; budget of the premise.
+   (if (and (<= 2 $size) (<= 2 $depth))
+       (let* (;; Recurse on premise 1 to make sure that $f evaluates
               ;; to true on $x
-              ((, (MkControl $fsize $fdepth) (: $fp (≞ (→ (⊙ $x) $f) ⊤)))
-               (nupln_bc $kb (MkControl $asize (- $depth 1))
-                         (: $fp (≞ (→ (⊙ $x) $f) ⊤)))))
+              ((, (MkControl $fsize $fdepth) (: $fp (≗ $f $x ⊤)))
+               (nupln_bc $kb (MkControl (- $size 1) (- $depth 1))
+                         (: $fp (≗ $f $x ⊤))))
+              ;; Make sure that (¬ $f) is in normal form, a shallow
+              ;; test is used because $f is assumed to be already in
+              ;; normal form.
+              (True (isShallowNormal (¬ $f))))
          ;; Build conclusion
-         (, (MkControl $fsize (min $adepth $fdepth))
-            (: (nef (→ (⊙ $x) (¬ $f)) $fp)
-               (≞ (→ (⊙ $x) (¬ $f)) ⊥))))
+         (, (MkControl $fsize $fdepth)
+            (: (nef $fp) (≗ (¬ $f) $x ⊥))))
        (empty)))
    ;; )
 
@@ -1509,7 +1469,7 @@
 ;; theorem would be allow grow a product of products arbitrarily
 ;; large.
 (= (nupln_bc $kb (MkControl $size $depth) (: (, $x $y) (, $a $b)))
-   (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (, $x $y) (, $a $b)))
+   ;; (trace! (👁 nupln_bc $kb (MkControl $size $depth) (: (, $x $y) (, $a $b)))
    ;; The size budget must cover the whole proof: 1 for the
    ;; introduction of `,` plus the proofs of the premises.  The first
    ;; premise is charged the unit of `,`, the second premise inherits
@@ -1541,4 +1501,4 @@
          (, (MkControl $ysize (min $xdepth $ydepth))
             (: (, $x $y) (, $a $b))))
        (empty)))
-   )
+   ;; )

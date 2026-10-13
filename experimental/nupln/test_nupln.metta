@@ -33,6 +33,20 @@
   (countArgsRA , (, a (, b c)))
   3)
 
+;; Test isClosed
+!(assertEqual
+  (isClosed A)
+  True)
+!(assertEqual
+  (isClosed $x)
+  False)
+!(assertEqual
+  (isClosed (∧ 𝕋 (∨ $x 𝔽)))
+  False)
+!(assertEqual
+  (isClosed (∨ (¬ 𝔽) 𝕋))
+  True)
+
 ;; Test isConjunction
 !(test
   (isConjunction (∧ F G))
@@ -516,14 +530,14 @@
 !(add-atom &kb (: 3 UInt))
 !(add-atom &kb (: F (-> UInt Bool)))
 !(add-atom &kb (: G (-> UInt Bool)))
-!(add-atom &kb (: f0t (≞ (→ (⊙ 0) F) ⊤)))   ; (F 0) = True
-!(add-atom &kb (: f1f (≞ (→ (⊙ 1) F) ⊥)))   ; (F 1) = False
-!(add-atom &kb (: f2t (≞ (→ (⊙ 2) F) ⊤)))   ; (F 1) = True
-!(add-atom &kb (: f3f (≞ (→ (⊙ 3) F) ⊥)))   ; (F 3) = False
-!(add-atom &kb (: g0t (≞ (→ (⊙ 0) G) ⊤)))   ; (F 0) = True
-!(add-atom &kb (: g1t (≞ (→ (⊙ 1) G) ⊤)))   ; (F 1) = True
-!(add-atom &kb (: g2f (≞ (→ (⊙ 2) G) ⊥)))   ; (F 1) = False
-!(add-atom &kb (: g3f (≞ (→ (⊙ 3) G) ⊥)))   ; (G 3) = False
+!(add-atom &kb (: f0t (≗ F 0 ⊤)))   ; (F 0) = True
+!(add-atom &kb (: f1f (≗ F 1 ⊥)))   ; (F 1) = False
+!(add-atom &kb (: f2t (≗ F 2 ⊤)))   ; (F 1) = True
+!(add-atom &kb (: f3f (≗ F 3 ⊥)))   ; (F 3) = False
+!(add-atom &kb (: g0t (≗ G 0 ⊤)))   ; (F 0) = True
+!(add-atom &kb (: g1t (≗ G 1 ⊤)))   ; (F 1) = True
+!(add-atom &kb (: g2f (≗ G 2 ⊥)))   ; (F 1) = False
+!(add-atom &kb (: g3f (≗ G 3 ⊥)))   ; (G 3) = False
 
 ;; Type check F
 !(test
@@ -545,78 +559,80 @@
   (nupln_bc &kb (MkControl 3 2) (: (∨ F G) $a))
   (, (MkControl 0 0) (: (∨ F G) (-> UInt Bool))))
 
-;; Type check (⊙ 0)
-!(test
-  (nupln_bc &kb (MkControl 2 2) (: (⊙ 0) $a))
-  (, (MkControl 0 0) (: (⊙ 0) (-> UInt Bool))))
+;; TODO: re-enable the following two tests once needed.
 
-;; Type check (→ (⊙ 0) (∧ F G))
-!(test
-  (nupln_bc &kb (MkControl 6 3) (: (→ (⊙ 0) (∧ F G)) $a))
-  (, (MkControl 0 0) (: (→ (⊙ 0) (∧ F G)) (CPred (-> UInt Bool)))))
+;; ;; Type check (⊙ 0)
+;; !(test
+;;   (nupln_bc &kb (MkControl 2 2) (: (⊙ 0) $a))
+;;   (, (MkControl 0 0) (: (⊙ 0) (-> UInt Bool))))
+
+;; ;; Type check (→ (⊙ 0) (∧ F G))
+;; !(test
+;;   (nupln_bc &kb (MkControl 6 3) (: (→ (⊙ 0) (∧ F G)) $a))
+;;   (, (MkControl 0 0) (: (→ (⊙ 0) (∧ F G)) (CPred (-> UInt Bool)))))
 
 ;; Evaluate (∧ F G) over 0
 !(test
-  (nupln_bc &kb (MkControl 9 4) (: $prf (≞ (→ (⊙ 0) (∧ F G)) $tv)))
-  (, (MkControl 0 0) (: (cet (→ (⊙ 0) (∧ F G)) f0t g0t) (≞ (→ (⊙ 0) (∧ F G)) ⊤))))
+  (nupln_bc &kb (MkControl 8 4) (: $prf (≗ (∧ F G) 0 $y)))
+  (, (MkControl 5 2) (: (cet f0t g0t) (≗ (∧ F G) 0 ⊤))))
 
 ;; Evaluate (∧ F G) over 1
 !(test
-  (nupln_bc &kb (MkControl 8 4) (: $prf (≞ (→ (⊙ 1) (∧ F G)) $tv)))
-  (, (MkControl 0 0) (: (cefl (→ (⊙ 1) (∧ F G)) f1f) (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
+  (nupln_bc &kb (MkControl 7 4) (: $prf (≗ (∧ F G) 1 $y)))
+  (, (MkControl 5 2) (: (cefl f1f) (≗ (∧ F G) 1 ⊥))))
 
 ;; Evaluate (∨ F G) over 1, true from right since (F 1) is False but (G 1) is True
 !(test
-  (nupln_bc &kb (MkControl 8 4) (: $prf (≞ (→ (⊙ 1) (∨ F G)) $tv)))
-  (, (MkControl 0 0) (: (detr (→ (⊙ 1) (∨ F G)) g1t) (≞ (→ (⊙ 1) (∨ F G)) ⊤))))
+  (nupln_bc &kb (MkControl 7 4) (: $prf (≗ (∨ F G) 1 $y)))
+  (, (MkControl 5 2) (: (detr g1t) (≗ (∨ F G) 1 ⊤))))
 
 ;; Evaluate (∨ F G) over 2, true from left since (F 2) is True and (G 2) is False
 !(test
-  (nupln_bc &kb (MkControl 8 4) (: $prf (≞ (→ (⊙ 2) (∨ F G)) $tv)))
-  (, (MkControl 0 0) (: (detl (→ (⊙ 2) (∨ F G)) f2t) (≞ (→ (⊙ 2) (∨ F G)) ⊤))))
+  (nupln_bc &kb (MkControl 7 4) (: $prf (≗ (∨ F G) 2 $y)))
+  (, (MkControl 5 2) (: (detl f2t) (≗ (∨ F G) 2 ⊤))))
 
 ;; Evaluate (∨ F G) over 3, false since both (F 3) and (G 3) are False
 !(test
-  (nupln_bc &kb (MkControl 9 4) (: $prf (≞ (→ (⊙ 3) (∨ F G)) $tv)))
-  (, (MkControl 0 0) (: (def (→ (⊙ 3) (∨ F G)) f3f g3f) (≞ (→ (⊙ 3) (∨ F G)) ⊥))))
+  (nupln_bc &kb (MkControl 8 4) (: $prf (≗ (∨ F G) 3 $y)))
+  (, (MkControl 5 2) (: (def f3f g3f) (≗ (∨ F G) 3 ⊥))))
 
 ;; Find proof of the evaluation of F over 3 values.  Note that depth
 ;; of 1 works because product cost nothing in terms of depth budget.
 !(test
   (nupln_bc &kb (MkControl 5 1)
-            (: $prf (, (≞ (→ (⊙ 0) F) ⊤)
-                    (, (≞ (→ (⊙ 1) F) ⊥)
-                       (≞ (→ (⊙ 2) F) ⊤)))))
+            (: $prf (, (≗ F 0 ⊤)
+                    (, (≗ F 1 ⊥)
+                       (≗ F 2 ⊤)))))
   (, (MkControl 0 0)
      (: (, f0t (, f1f f2t))
-        (, (≞ (→ (⊙ 0) F) ⊤)
-        (, (≞ (→ (⊙ 1) F) ⊥)
-           (≞ (→ (⊙ 2) F) ⊤))))))
+        (, (≗ F 0 ⊤)
+        (, (≗ F 1 ⊥)
+           (≗ F 2 ⊤))))))
 
 ;; Find proof of (∧ F G) evaluation over 2 values
 !(test
-  (nupln_bc &kb (MkControl 18 4)
-            (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-                       (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
-  (, (MkControl 0 0)
-     (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
-           (cefl (→ (⊙ 1) (∧ F G)) f1f))
-        (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-           (≞ (→ (⊙ 1) (∧ F G)) ⊥)))))
+  (nupln_bc &kb (MkControl 16 4)
+            (: $prf (, (≗ (∧ F G) 0 ⊤)
+                       (≗ (∧ F G) 1 ⊥))))
+  (, (MkControl 10 2)
+     (: (, (cet f0t g0t)
+           (cefl f1f))
+        (, (≗ (∧ F G) 0 ⊤)
+           (≗ (∧ F G) 1 ⊥)))))
 
 ;; Find proof of (∧ F G) evaluation over 3 values
 !(test
-  (nupln_bc &kb (MkControl 27 4)
-            (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-                    (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-                       (≞ (→ (⊙ 2) (∧ F G)) ⊥)))))
-  (, (MkControl 0 0)
-     (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
-        (, (cefl (→ (⊙ 1) (∧ F G)) f1f)
-           (cefr (→ (⊙ 2) (∧ F G)) g2f)))
-        (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-        (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-           (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
+  (nupln_bc &kb (MkControl 24 4)
+            (: $prf (, (≗ (∧ F G) 0 ⊤)
+                    (, (≗ (∧ F G) 1 ⊥)
+                       (≗ (∧ F G) 2 ⊥)))))
+  (, (MkControl 15 2)
+     (: (, (cet f0t g0t)
+        (, (cefl f1f)
+           (cefr g2f)))
+        (, (≗ (∧ F G) 0 ⊤)
+        (, (≗ (∧ F G) 1 ⊥)
+           (≗ (∧ F G) 2 ⊥))))))
 
 ;; Find proof of (∨ F G) evaluation over 3 values.  On 1 (G true, F
 ;; false) the disjunction is True from the right; on 2 (F true, G
@@ -624,113 +640,111 @@
 ;; Values are chosen so that exactly one of detl, detr or def applies
 ;; at each input, giving a unique proof.
 !(test
-  (nupln_bc &kb (MkControl 27 4)
-            (: $prf (, (≞ (→ (⊙ 1) (∨ F G)) ⊤)
-                    (, (≞ (→ (⊙ 2) (∨ F G)) ⊤)
-                       (≞ (→ (⊙ 3) (∨ F G)) ⊥)))))
-  (, (MkControl 0 0)
-     (: (, (detr (→ (⊙ 1) (∨ F G)) g1t)
-        (, (detl (→ (⊙ 2) (∨ F G)) f2t)
-           (def (→ (⊙ 3) (∨ F G)) f3f g3f)))
-        (, (≞ (→ (⊙ 1) (∨ F G)) ⊤)
-        (, (≞ (→ (⊙ 2) (∨ F G)) ⊤)
-           (≞ (→ (⊙ 3) (∨ F G)) ⊥))))))
+  (nupln_bc &kb (MkControl 24 4)
+            (: $prf (, (≗ (∨ F G) 1 ⊤)
+                    (, (≗ (∨ F G) 2 ⊤)
+                       (≗ (∨ F G) 3 ⊥)))))
+  (, (MkControl 15 2)
+     (: (, (detr g1t)
+        (, (detl f2t)
+           (def f3f g3f)))
+        (, (≗ (∨ F G) 1 ⊤)
+        (, (≗ (∨ F G) 2 ⊤)
+           (≗ (∨ F G) 3 ⊥))))))
 
 ;; Infer what predicates could evaluate to the partial truth table
 ;; corresponding to F.
 !(test
   (sort-atom
-   (collapse (nupln_bc &kb (MkControl 18 4)
-                       (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                                  (≞ (→ (⊙ 1) $pred) ⊥))))))
+   (collapse (nupln_bc &kb (MkControl 6 4)
+                       (: $prf (, (≗ $pred 0 ⊤)
+                                  (≗ $pred 1 ⊥))))))
   (sort-atom
-   ((, (MkControl 0 0)
-       (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
-             (cefl (→ (⊙ 1) (∧ F G)) f1f))
-          (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-             (≞ (→ (⊙ 1) (∧ F G)) ⊥))))
-    (, (MkControl 15 3)
+   ((, (MkControl 3 3)
        (: (, f0t f1f)
-          (, (≞ (→ (⊙ 0) F) ⊤)
-             (≞ (→ (⊙ 1) F) ⊥)))))))
+          (, (≗ F 0 ⊤)
+             (≗ F 1 ⊥))))
+    (, (MkControl 0 2)
+       (: (, (cet f0t g0t) (cefl f1f))
+          (, (≗ (∧ F G) 0 ⊤)
+             (≗ (∧ F G) 1 ⊥)))))))
 
 ;; Infer what predicates could evaluate to the partial truth table
 ;; corresponding to (¬ F).  The proof for (¬ F 0) = ⊥ uses (nef f0t)
 ;; because (F 0) = ⊤; the proof for (¬ F 1) = ⊤ uses (net f1f) because
-;; (F 1) = ⊥.  Budget: 1 for outer `,` + 7 for (nef f0t) + 7 for (net
-;; f1f) = 15.
+;; (F 1) = ⊥.  Budget: 1 for outer `,` + 2 for (nef f0t) + 2 for (net
+;; f1f) = 5.
 !(test
-  (nupln_bc &kb (MkControl 15 4)
-            (: $prf (, (≞ (→ (⊙ 0) $pred) ⊥)
-                       (≞ (→ (⊙ 1) $pred) ⊤))))
-  (, (MkControl 0 0)
-     (: (, (nef (→ (⊙ 0) (¬ F)) f0t)
-           (net (→ (⊙ 1) (¬ F)) f1f))
-        (, (≞ (→ (⊙ 0) (¬ F)) ⊥)
-           (≞ (→ (⊙ 1) (¬ F)) ⊤)))))
+  (nupln_bc &kb (MkControl 5 4)
+            (: $prf (, (≗ $pred 0 ⊥)
+                       (≗ $pred 1 ⊤))))
+  (, (MkControl 0 2)
+     (: (, (nef f0t) (net f1f))
+        (, (≗ (¬ F) 0 ⊥)
+           (≗ (¬ F) 1 ⊤)))))
 
 ;; Infer what predicates could evaluate to the partial truth table
 ;; corresponding to (∧ F G)
 !(test
-  (nupln_bc &kb (MkControl 8 4) (: $prf (≞ (→ (⊙ 2) (∧ F G)) ⊥)))
-  (, (MkControl 0 0)
-     (: (cefr (→ (⊙ 2) (∧ F G)) g2f) (≞ (→ (⊙ 2) (∧ F G)) ⊥))))
+  (nupln_bc &kb (MkControl 7 4) (: $prf (≗ (∧ F G) 2 ⊥)))
+  (, (MkControl 5 2)
+     (: (cefr g2f) (≗ (∧ F G) 2 ⊥))))
+
+;; Type check that (∧ F G) evaluate according to the given partial
+;; truth table
+!(test
+  (nupln_bc &kb (MkControl 16 4)
+            (: $prf (, (≗ (∧ F G) 0 ⊤)
+                       (≗ (∧ F G) 2 ⊥))))
+  (, (MkControl 10 2)
+     (: (, (cet f0t g0t)
+           (cefr g2f))
+        (, (≗ (∧ F G) 0 ⊤)
+           (≗ (∧ F G) 2 ⊥)))))
 
 ;; Infer what predicates could evaluate to the partial truth table
 ;; corresponding to (∧ F G)
 !(test
-  (nupln_bc &kb (MkControl 18 4)
-            (: $prf (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-                       (≞ (→ (⊙ 2) (∧ F G)) ⊥))))
-  (, (MkControl 0 0)
-     (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
-           (cefr (→ (⊙ 2) (∧ F G)) g2f))
-        (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-           (≞ (→ (⊙ 2) (∧ F G)) ⊥)))))
-
-;; Infer what predicates could evaluate to the partial truth table
-;; corresponding to (∧ F G)
-!(test
-  (nupln_bc &kb (MkControl 27 4)
-            (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                    (, (≞ (→ (⊙ 1) $pred) ⊥)
-                       (≞ (→ (⊙ 2) $pred) ⊥)))))
-  (, (MkControl 0 0)
-     (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
-        (, (cefl (→ (⊙ 1) (∧ F G)) f1f)
-           (cefr (→ (⊙ 2) (∧ F G)) g2f)))
-        (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-        (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-           (≞ (→ (⊙ 2) (∧ F G)) ⊥))))))
+  (nupln_bc &kb (MkControl 9 4)
+            (: $prf (, (≗ $pred 0 ⊤)
+                    (, (≗ $pred 1 ⊥)
+                       (≗ $pred 2 ⊥)))))
+  (, (MkControl 0 2)
+     (: (, (cet f0t g0t)
+        (, (cefl f1f)
+           (cefr g2f)))
+        (, (≗ (∧ F G) 0 ⊤)
+        (, (≗ (∧ F G) 1 ⊥)
+           (≗ (∧ F G) 2 ⊥))))))
 
 ;; Infer what predicates could evaluate to the full truth table
 ;; corresponding to (∧ F G).
 !(test
   (sort-atom
    (collapse
-    (nupln_bc &kb (MkControl 36 4) (: $prf (, (≞ (→ (⊙ 0) $pred) ⊤)
-                                           (, (≞ (→ (⊙ 1) $pred) ⊥)
-                                           (, (≞ (→ (⊙ 2) $pred) ⊥)
-                                              (≞ (→ (⊙ 3) $pred) ⊥))))))))
+    (nupln_bc &kb (MkControl 12 4) (: $prf (, (≗ $pred 0 ⊤)
+                                           (, (≗ $pred 1 ⊥)
+                                           (, (≗ $pred 2 ⊥)
+                                              (≗ $pred 3 ⊥))))))))
   (sort-atom
-   ((, (MkControl 0 0)
-       (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
-          (, (cefl (→ (⊙ 1) (∧ F G)) f1f)
-          (, (cefr (→ (⊙ 2) (∧ F G)) g2f)
-             (cefl (→ (⊙ 3) (∧ F G)) f3f))))
-          (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-          (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-          (, (≞ (→ (⊙ 2) (∧ F G)) ⊥)
-             (≞ (→ (⊙ 3) (∧ F G)) ⊥))))))
-    (, (MkControl 0 0)
-       (: (, (cet (→ (⊙ 0) (∧ F G)) f0t g0t)
-          (, (cefl (→ (⊙ 1) (∧ F G)) f1f)
-          (, (cefr (→ (⊙ 2) (∧ F G)) g2f)
-             (cefr (→ (⊙ 3) (∧ F G)) g3f))))
-          (, (≞ (→ (⊙ 0) (∧ F G)) ⊤)
-          (, (≞ (→ (⊙ 1) (∧ F G)) ⊥)
-          (, (≞ (→ (⊙ 2) (∧ F G)) ⊥)
-             (≞ (→ (⊙ 3) (∧ F G)) ⊥)))))))))
+   ((, (MkControl 0 2)
+       (: (, (cet f0t g0t)
+          (, (cefl f1f)
+          (, (cefr g2f)
+             (cefl f3f))))
+          (, (≗ (∧ F G) 0 ⊤)
+          (, (≗ (∧ F G) 1 ⊥)
+          (, (≗ (∧ F G) 2 ⊥)
+             (≗ (∧ F G) 3 ⊥))))))
+    (, (MkControl 0 2)
+       (: (, (cet f0t g0t)
+          (, (cefl f1f)
+          (, (cefr g2f)
+             (cefr g3f))))
+          (, (≗ (∧ F G) 0 ⊤)
+          (, (≗ (∧ F G) 1 ⊥)
+          (, (≗ (∧ F G) 2 ⊥)
+             (≗ (∧ F G) 3 ⊥)))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Test composite predicate synthesis ;;
