@@ -383,45 +383,64 @@
 ;; proof.  The speed-up is not enormous but significant, at least 2x,
 ;; probably more.  That code remains here under this form to test
 ;; normal form checking ideas.
-(= (isShallowNormal $x)
-   (if (is-expr $x)
-       (if (== $x ())
+;;
+;; Note that it works even for terms that are not closed, i.e. that
+;; contain free variables.  That allows to check normality early even
+;; on candidates that are not completed formed.  So in the case where
+;; the term is not fully formed the question is answers is whether it
+;; *could* be in normal form.
+(= (isShallowNormal $term)
+   (if (is-expr $term)
+       (if (== $term ())
            True
-           (case $x
+           (case $term
              (;; Nullary application
               (($f) True)
               ;; Unary application
               ;; Like in MOSES, ¬ must be pushed to the leaves.
               ;; ¬ 𝕋 and ¬ 𝔽 are not in normal form either, since
               ;; they normalize to 𝔽 and 𝕋 respectively.
-              ((¬ $g) (if (or (== $g 𝕋) (== $g 𝔽))
+              ((¬ $f) (if (or (== $f 𝕋) (== $f 𝔽))
                           False
-                          (not (is-expr $g))))
+                          (not (is-expr $f))))
               ;; Binary application
-              ((∧ $g $h)
-               ;; Must be in left associative form, with sorted and
-               ;; non contradicting arguments, and neither absorption
-               ;; nor reduction.  R1/R4 checks additionally require
-               ;; no tautological ∨-clause, no falsified clause
-               ;; operand, no absorbed clause (R1 dual), and no
-               ;; clause that would collapse the chain.
-               (and (not (isConjunction $g))
-                    (and (isConjSorted (∧ $g $h))
-                         (and (isConjNonContradict (∧ $g $h))
-                              (and (noAbsorbNorReduce ∧ $g $h)
-                                   (noReducibleClause ∧ $g $h))))))
-              ((∨ $g $h)
-               ;; Must be in left associative form, with sorted and
-               ;; non contradicting arguments, and neither absorption
-               ;; nor reduction.  R1/R4 checks additionally require
-               ;; no contradictory ∧-term (R4), no redundant ∧-term
-               ;; (R1 ∨), no absorbed clause (R1 dual), and no clause
-               ;; that would collapse the chain.
-               (and (not (isDisjunction $g))
-                    (and (isDisjSorted (∨ $g $h))
-                         (and (isDisjNonContradict (∨ $g $h))
-                              (and (noAbsorbNorReduce ∨ $g $h)
-                                   (noReducibleClause ∨ $g $h))))))
+              ((∧ $f $g)
+               ;; In order to fully check for normality we assume that
+               ;; both $f and $g are closed, other the term is
+               ;; presumed to be possibly in normal form.  TODO: this
+               ;; should be hardened.
+               (if (and (isClosed $f) (isClosed $g))
+                   ;; Must be in left associative form, with sorted and
+                   ;; non contradicting arguments, and neither absorption
+                   ;; nor reduction.  R1/R4 checks additionally require
+                   ;; no tautological ∨-clause, no falsified clause
+                   ;; operand, no absorbed clause (R1 dual), and no
+                   ;; clause that would collapse the chain.
+                   (and (not (isConjunction $f))
+                        (and (isConjSorted (∧ $f $g))
+                             (and (isConjNonContradict (∧ $f $g))
+                                  (and (noAbsorbNorReduce ∧ $f $g)
+                                       (noReducibleClause ∧ $f $g)))))
+                   True))
+              ((∨ $f $g)
+               ;; In order to fully check for normality we assume that
+               ;; both $f and $g are closed, other the term is
+               ;; presumed to be possibly in normal form.  TODO: this
+               ;; should be hardened.
+               (if (and (isClosed $f) (isClosed $g))
+                   ;; Must be in left associative form, with sorted
+                   ;; and non contradicting arguments, and neither
+                   ;; absorption nor reduction.  R1/R4 checks
+                   ;; additionally require no contradictory ∧-term
+                   ;; (R4), no redundant ∧-term (R1 ∨), no absorbed
+                   ;; clause (R1 dual), and no clause that would
+                   ;; collapse the chain.
+                   (and (not (isDisjunction $f))
+                        (and (isDisjSorted (∨ $f $g))
+                             (and (isDisjNonContradict (∨ $f $g))
+                                  (and (noAbsorbNorReduce ∨ $f $g)
+                                       (noReducibleClause ∨ $f $g)))))
+                   True))
               ($else True))))
        True))
 
@@ -430,13 +449,13 @@
 ;;
 ;; Early benchmarks indicate that isNormal is a few fold slower than
 ;; isShallowNormal.
-(= (isNormal $x)
-   (if (is-expr $x)
-       (if (== $x ())
+(= (isNormal $term)
+   (if (is-expr $term)
+       (if (== $term ())
            True
-           (let* (($hd (car-atom $x))
-                  ($tl (cdr-atom $x)))
-             (and (isShallowNormal $x)
+           (let* (($hd (car-atom $term))
+                  ($tl (cdr-atom $term)))
+             (and (isShallowNormal $term)
                   (and (isNormal $hd) (isNormal $tl)))))
        True))
 
@@ -468,22 +487,22 @@
 ;; If g is the constant 𝕋 or 𝔽, the result is 𝔽 or 𝕋 respectively.
 ;; Inputs that wrap a non literal in ¬ (like (¬ (∧ F G))) are left as
 ;; is, since pushing negation in is a separate transformation.
-(= (toNormal $x)
-   (if (is-expr $x)
-       (case $x
+(= (toNormal $term)
+   (if (is-expr $term)
+       (case $term
          (;; Nullary application or empty expression: already normal.
-          (($f) $x)
+          (($f) $term)
           ;; Negation.  Recursively normalize the argument; if the
           ;; argument reduces to another negation, drop the outer ¬
           ;; to eliminate double negation.  If the argument is 𝕋 or
           ;; 𝔽, negate them to 𝔽 or 𝕋 respectively.  Otherwise keep
           ;; the ¬.
-          ((¬ $g)
-           (if (== $g 𝕋)
+          ((¬ $f)
+           (if (== $f 𝕋)
                𝔽
-               (if (== $g 𝔽)
+               (if (== $f 𝔽)
                    𝕋
-                   (let $inner (toNormal $g)
+                   (let $inner (toNormal $f)
                      (if (isNegation $inner)
                          (getFstArg $inner)
                          (¬ $inner))))))
@@ -493,9 +512,9 @@
           ;; contradiction) or the R1/R4 pipeline returns 𝔽, or
           ;; run the compact/reduce pipeline (with R1/R4 stages) and
           ;; rebuild.
-          ((∧ $g $h)
-           (let $ops (flattenOp ∧ (toNormal $g)
-                                 (flattenOp ∧ (toNormal $h) ()))
+          ((∧ $f $g)
+           (let $ops (flattenOp ∧ (toNormal $f)
+                                 (flattenOp ∧ (toNormal $g) ()))
              (if (hasContradiction $ops)
                  𝔽
                  (let $cr (compactReduce ∧ $ops)
@@ -508,16 +527,16 @@
           ;; ∨-clauses from the surrounding chain rather than
           ;; collapsing the whole chain.  An empty clause collapse
           ;; (R1) or chain 𝕋 collapse is signalled by compactReduce.
-          ((∨ $g $h)
-           (let $cr (compactReduce ∨ (flattenOp ∨ (toNormal $g)
-                                                (flattenOp ∨ (toNormal $h) ())))
+          ((∨ $f $g)
+           (let $cr (compactReduce ∨ (flattenOp ∨ (toNormal $f)
+                                                (flattenOp ∨ (toNormal $g) ())))
              (if (== $cr 𝕋)
                  𝕋
                  (buildOp ∨ $cr))))
           ;; Other expressions (e.g. function applications): leave
           ;; as is, they are not part of the boolean fragment.
-          ($else $x)))
-       $x))
+          ($else $term)))
+       $term))
 
 ;; Flatten an operator chain.  If the term is a binary `(op a b)`
 ;; expression whose head matches the operator being flattened,
