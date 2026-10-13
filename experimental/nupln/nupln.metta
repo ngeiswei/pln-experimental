@@ -186,11 +186,12 @@
           ($else False)))
        True))
 
-;; Check if $x is a binary call with a given operator
-(= (isBinaryOp $op $x)
-   (if (is-expr $x)
-       (case $x
-         ((($op $f $g) True)
+;; Check if $x is a binary call with a given operator.  It works on
+;; any term, including those containing free variables.
+(= (isBinaryOp $op $term)
+   (if (is-expr $term)
+       (case $term
+         ((($f $x $y) (== $op $f))
           ($else False)))
        False))
 
